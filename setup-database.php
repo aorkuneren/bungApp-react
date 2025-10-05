@@ -15,6 +15,7 @@ try {
     // PDO bağlantısı oluştur
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
     
     echo "<p style='color: green;'>✅ Database bağlantısı başarılı!</p>";
     
@@ -34,7 +35,10 @@ try {
         $statement = trim($statement);
         if (!empty($statement) && !preg_match('/^(USE|SELECT)/i', $statement)) {
             try {
-                $pdo->exec($statement);
+                $stmt = $pdo->prepare($statement);
+                $stmt->execute();
+                $stmt->closeCursor(); // Cursor'ı kapat
+                
                 if (preg_match('/CREATE TABLE.*?`?(\w+)`?/i', $statement, $matches)) {
                     $created_tables[] = $matches[1];
                 }
@@ -66,7 +70,9 @@ try {
         $statement = trim($statement);
         if (!empty($statement) && !preg_match('/^(USE|SELECT)/i', $statement)) {
             try {
-                $pdo->exec($statement);
+                $stmt = $pdo->prepare($statement);
+                $stmt->execute();
+                $stmt->closeCursor(); // Cursor'ı kapat
             } catch (PDOException $e) {
                 echo "<p style='color: orange;'>⚠️ Uyarı: " . $e->getMessage() . "</p>";
             }
