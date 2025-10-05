@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '../context/AuthContext';
 
-const Login = ({ onLogin }) => {
+const Login = () => {
+  const { login, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -74,6 +77,13 @@ const Login = ({ onLogin }) => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -81,20 +91,13 @@ const Login = ({ onLogin }) => {
       return;
     }
 
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      // User bilgilerini oluştur
-      const userData = {
-        name: 'Admin',
-        role: 'Yönetici',
-        email: formData.email,
-        loginTime: new Date().toISOString()
-      };
-      onLogin(userData);
-    }, 1000);
+    try {
+      await login(formData);
+      navigate('/dashboard');
+    } catch (error) {
+      // Error is handled by the auth service and displayed via toast
+      console.error('Login error:', error);
+    }
   };
 
   return (
