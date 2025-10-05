@@ -4,7 +4,7 @@ import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
@@ -200,14 +200,14 @@ const Login = () => {
           <div>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={loading}
               className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
-                isLoading
+                loading
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900'
               }`}
             >
-              {isLoading ? (
+              {loading ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Giriş yapılıyor...
