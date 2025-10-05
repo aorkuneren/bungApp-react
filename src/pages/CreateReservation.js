@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { 
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -235,7 +236,7 @@ const CreateReservation = () => {
     });
     
     // Başarı mesajı ve yönlendirme
-    alert('Rezervasyon başarıyla oluşturuldu!');
+    toast.success('Rezervasyon başarıyla oluşturuldu!');
   };
 
   const renderStepIndicator = () => (

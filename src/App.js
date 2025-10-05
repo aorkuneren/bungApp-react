@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import Navigation from './components/Navigation';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -111,6 +112,70 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           </Routes>
         </div>
+        {/* Toast Notifications */}
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#ffffff',
+              color: '#374151',
+              borderRadius: '12px',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+              border: '1px solid #e5e7eb',
+              padding: '16px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+            success: {
+              duration: 3000,
+              iconTheme: {
+                primary: '#ffffff',
+                secondary: '#000000',
+              },
+              style: {
+                background: '#ffffff',
+                color: '#374151',
+                borderRadius: '12px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                border: '1px solid #e5e7eb',
+                padding: '16px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+            },
+            error: {
+              duration: 5000,
+              iconTheme: {
+                primary: '#ffffff',
+                secondary: '#000000',
+              },
+              style: {
+                background: '#ffffff',
+                color: '#374151',
+                borderRadius: '12px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                border: '1px solid #e5e7eb',
+                padding: '16px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+            },
+            loading: {
+              duration: Infinity,
+              style: {
+                background: '#ffffff',
+                color: '#374151',
+                borderRadius: '12px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                border: '1px solid #e5e7eb',
+                padding: '16px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+            },
+          }}
+        />
       </div>
     </Router>
   );

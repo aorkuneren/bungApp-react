@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { 
   XMarkIcon,
   CalendarIcon,
@@ -89,7 +90,7 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
 
   const handlePostpone = async () => {
     if (selectedDates.length === 0) {
-      alert('Lütfen en az bir tarih seçin!');
+      toast.error('Lütfen en az bir tarih seçin!');
       return;
     }
 
@@ -99,6 +100,8 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
     const newCheckOut = sortedDates[sortedDates.length - 1];
 
     setIsLoading(true);
+    const postponeToast = toast.loading('Rezervasyon güncelleniyor...');
+    
     try {
       // Simüle edilmiş API çağrısı
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -113,10 +116,11 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
         useCustomPrice: useCustomPrice
       });
       
+      toast.success('Rezervasyon başarıyla güncellendi!', { id: postponeToast });
       onClose();
     } catch (error) {
       console.error('Erteleme hatası:', error);
-      alert('Erteleme sırasında bir hata oluştu!');
+      toast.error('Erteleme sırasında bir hata oluştu!', { id: postponeToast });
     } finally {
       setIsLoading(false);
     }

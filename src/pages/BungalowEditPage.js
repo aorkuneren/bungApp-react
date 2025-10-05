@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { 
   ArrowLeftIcon,
   BuildingOfficeIcon,
@@ -79,17 +80,18 @@ const BungalowEditPage = () => {
     
     setIsSaving(true);
     
+    const saveToast = toast.loading('Bungalov güncelleniyor...');
+    
     try {
       // Simüle edilmiş API çağrısı
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Başarı mesajı
-      alert('Bungalov başarıyla güncellendi!');
+      toast.success('Bungalov başarıyla güncellendi!', { id: saveToast });
       
       // Bungalov detay sayfasına yönlendir
       navigate(`/bungalows/${id}`);
     } catch (error) {
-      alert('Güncelleme sırasında bir hata oluştu!');
+      toast.error('Güncelleme sırasında bir hata oluştu!', { id: saveToast });
     } finally {
       setIsSaving(false);
     }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { 
   XMarkIcon,
   CreditCardIcon,
@@ -16,16 +17,18 @@ const PaymentModal = ({ isOpen, onClose, reservation, onPayment }) => {
 
   const handlePayment = async () => {
     if (paymentAmount <= 0) {
-      alert('Lütfen geçerli bir ödeme tutarı girin!');
+      toast.error('Lütfen geçerli bir ödeme tutarı girin!');
       return;
     }
 
     if (paymentAmount > reservation.remainingAmount) {
-      alert('Ödeme tutarı kalan tutardan fazla olamaz!');
+      toast.error('Ödeme tutarı kalan tutardan fazla olamaz!');
       return;
     }
 
     setIsLoading(true);
+    const paymentToast = toast.loading('Ödeme kaydediliyor...');
+    
     try {
       // Simüle edilmiş API çağrısı
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -37,10 +40,11 @@ const PaymentModal = ({ isOpen, onClose, reservation, onPayment }) => {
         notes: paymentNotes
       });
       
+      toast.success('Ödeme başarıyla kaydedildi!', { id: paymentToast });
       onClose();
     } catch (error) {
       console.error('Ödeme hatası:', error);
-      alert('Ödeme sırasında bir hata oluştu!');
+      toast.error('Ödeme sırasında bir hata oluştu!', { id: paymentToast });
     } finally {
       setIsLoading(false);
     }

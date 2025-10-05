@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { bungalows, BUNGALOW_STATUS, formatPrice, getReservationsByBungalowId } from '../data/data';
 import { 
   BuildingOfficeIcon, 
@@ -237,7 +238,7 @@ const Bungalows = () => {
   const handleSaveBungalow = () => {
     // Burada gerçek uygulamada API çağrısı yapılacak
     console.log('Bungalov kaydediliyor:', bungalowForm);
-    alert('Bungalov başarıyla kaydedildi!');
+    toast.success('Bungalov başarıyla kaydedildi!');
     setShowAddModal(false);
   };
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { 
   XMarkIcon,
   ExclamationTriangleIcon,
@@ -13,11 +14,13 @@ const CancelReservationModal = ({ isOpen, onClose, reservation, onCancel }) => {
 
   const handleCancel = async () => {
     if (!cancelReason.trim()) {
-      alert('Lütfen iptal sebebini belirtin!');
+      toast.error('Lütfen iptal sebebini belirtin!');
       return;
     }
 
     setIsLoading(true);
+    const cancelToast = toast.loading('Rezervasyon iptal ediliyor...');
+    
     try {
       // Simüle edilmiş API çağrısı
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -28,10 +31,11 @@ const CancelReservationModal = ({ isOpen, onClose, reservation, onCancel }) => {
         refundAmount: calculateRefund()
       });
       
+      toast.success('Rezervasyon başarıyla iptal edildi!', { id: cancelToast });
       onClose();
     } catch (error) {
       console.error('İptal hatası:', error);
-      alert('İptal sırasında bir hata oluştu!');
+      toast.error('İptal sırasında bir hata oluştu!', { id: cancelToast });
     } finally {
       setIsLoading(false);
     }
