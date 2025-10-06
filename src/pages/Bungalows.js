@@ -134,7 +134,9 @@ const Bungalows = () => {
   // İstatistik hesaplamaları
   const totalBungalows = bungalows.length;
   const activeBungalows = bungalows.filter(b => b.status === BUNGALOW_STATUS.ACTIVE).length;
-  const averagePrice = Math.round(bungalows.reduce((sum, b) => sum + b.dailyPrice, 0) / bungalows.length);
+  const averagePrice = bungalows.length > 0 
+    ? Math.round(bungalows.reduce((sum, b) => sum + b.dailyPrice, 0) / bungalows.length)
+    : 0;
 
   // Dinamik filtre seçenekleri
   const availableStatuses = [...new Set(bungalows.map(b => b.status))].sort();
