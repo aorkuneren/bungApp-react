@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CogIcon, 
-  UserIcon, 
   BellIcon, 
   ShieldCheckIcon, 
   GlobeAltIcon,
@@ -9,15 +8,16 @@ import {
   CurrencyDollarIcon,
   BuildingOfficeIcon,
   CheckIcon,
-  XMarkIcon,
   PlusIcon,
-  TrashIcon,
-  CalendarIcon,
-  ClockIcon
+  TrashIcon
 } from '@heroicons/react/24/outline';
+import { settingsService } from '../services/settingsService';
+import toast from 'react-hot-toast';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('genel');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
     // Genel Ayarlar
     siteName: 'Bungalov Yönetim Sistemi',
@@ -98,6 +98,168 @@ const Settings = () => {
     }
   });
 
+  // Ayarları yükle
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    setLoading(true);
+    try {
+      const allSettings = await settingsService.getAllSettings();
+      setSettings(prevSettings => ({
+        ...prevSettings,
+        ...allSettings.general,
+        ...allSettings.notifications,
+        ...allSettings.security,
+        ...allSettings.reservations,
+        ...allSettings.payments
+      }));
+    } catch (error) {
+      console.error('Ayarlar yüklenemedi:', error);
+      toast.error('Ayarlar yüklenirken hata oluştu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Genel ayarları kaydet
+  const saveGeneralSettings = async () => {
+    setSaving(true);
+    try {
+      const generalSettings = {
+        siteName: settings.siteName,
+        siteDescription: settings.siteDescription,
+        timezone: settings.timezone,
+        language: settings.language,
+        currency: settings.currency
+      };
+      
+      await settingsService.updateGeneralSettings(generalSettings);
+      toast.success('Genel ayarlar başarıyla kaydedildi');
+    } catch (error) {
+      console.error('Genel ayarlar kaydedilemedi:', error);
+      toast.error('Ayarlar kaydedilirken hata oluştu');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Bildirim ayarlarını kaydet
+  const saveNotificationSettings = async () => {
+    setSaving(true);
+    try {
+      const notificationSettings = {
+        emailNotifications: settings.emailNotifications,
+        smsNotifications: settings.smsNotifications,
+        reservationAlerts: settings.reservationAlerts,
+        paymentAlerts: settings.paymentAlerts,
+        systemAlerts: settings.systemAlerts
+      };
+      
+      await settingsService.updateNotificationSettings(notificationSettings);
+      toast.success('Bildirim ayarları başarıyla kaydedildi');
+    } catch (error) {
+      console.error('Bildirim ayarları kaydedilemedi:', error);
+      toast.error('Ayarlar kaydedilirken hata oluştu');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Güvenlik ayarlarını kaydet
+  const saveSecuritySettings = async () => {
+    setSaving(true);
+    try {
+      const securitySettings = {
+        twoFactorAuth: settings.twoFactorAuth,
+        sessionTimeout: settings.sessionTimeout,
+        passwordExpiry: settings.passwordExpiry,
+        loginAttempts: settings.loginAttempts
+      };
+      
+      await settingsService.updateSecuritySettings(securitySettings);
+      toast.success('Güvenlik ayarları başarıyla kaydedildi');
+    } catch (error) {
+      console.error('Güvenlik ayarları kaydedilemedi:', error);
+      toast.error('Ayarlar kaydedilirken hata oluştu');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Rezervasyon ayarlarını kaydet
+  const saveReservationSettings = async () => {
+    setSaving(true);
+    try {
+      const reservationSettings = {
+        advanceBookingDays: settings.advanceBookingDays,
+        cancellationPolicy: settings.cancellationPolicy,
+        depositRequired: settings.depositRequired,
+        depositPercentage: settings.depositPercentage,
+        maxOccupancy: settings.maxOccupancy,
+        checkInTime: settings.checkInTime,
+        checkOutTime: settings.checkOutTime,
+        minimumStay: settings.minimumStay,
+        weekendPricing: settings.weekendPricing,
+        seasonalPricing: settings.seasonalPricing,
+        monthlyPricing: settings.monthlyPricing,
+        specialDates: settings.specialDates
+      };
+      
+      await settingsService.updateReservationSettings(reservationSettings);
+      toast.success('Rezervasyon ayarları başarıyla kaydedildi');
+    } catch (error) {
+      console.error('Rezervasyon ayarları kaydedilemedi:', error);
+      toast.error('Ayarlar kaydedilirken hata oluştu');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Ödeme ayarlarını kaydet
+  const savePaymentSettings = async () => {
+    setSaving(true);
+    try {
+      const paymentSettings = {
+        paymentMethods: settings.paymentMethods,
+        taxRate: settings.taxRate,
+        serviceFee: settings.serviceFee
+      };
+      
+      await settingsService.updatePaymentSettings(paymentSettings);
+      toast.success('Ödeme ayarları başarıyla kaydedildi');
+    } catch (error) {
+      console.error('Ödeme ayarları kaydedilemedi:', error);
+      toast.error('Ayarlar kaydedilirken hata oluştu');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Aktif tab'a göre kaydetme fonksiyonu
+  const handleSave = () => {
+    switch (activeTab) {
+      case 'genel':
+        saveGeneralSettings();
+        break;
+      case 'bildirimler':
+        saveNotificationSettings();
+        break;
+      case 'guvenlik':
+        saveSecuritySettings();
+        break;
+      case 'rezervasyonlar':
+        saveReservationSettings();
+        break;
+      case 'odemeler':
+        savePaymentSettings();
+        break;
+      default:
+        toast.error('Bilinmeyen tab');
+    }
+  };
+
   const tabs = [
     { id: 'genel', name: 'Genel', icon: CogIcon },
     { id: 'bildirimler', name: 'Bildirimler', icon: BellIcon },
@@ -116,11 +278,6 @@ const Settings = () => {
     }));
   };
 
-  const handleSave = () => {
-    // Burada ayarları kaydetme işlemi yapılacak
-    console.log('Ayarlar kaydedildi:', settings);
-    // Başarı mesajı gösterilebilir
-  };
 
   const renderGeneralSettings = () => (
     <div className="space-y-6">
@@ -1183,6 +1340,21 @@ const Settings = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+              <p className="text-gray-600">Ayarlar yükleniyor...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:px-8">
@@ -1227,10 +1399,24 @@ const Settings = () => {
                 </h2>
                 <button
                   onClick={handleSave}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  disabled={saving || loading}
+                  className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${
+                    saving || loading
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-gray-900 hover:bg-gray-800'
+                  }`}
                 >
-                  <CheckIcon className="w-4 h-4 mr-2" />
-                  Kaydet
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Kaydediliyor...
+                    </>
+                  ) : (
+                    <>
+                      <CheckIcon className="w-4 h-4 mr-2" />
+                      Kaydet
+                    </>
+                  )}
                 </button>
               </div>
               
