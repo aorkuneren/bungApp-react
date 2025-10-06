@@ -23,8 +23,8 @@ const Settings = () => {
     siteName: 'Bungalov Yönetim Sistemi',
     siteDescription: 'Profesyonel bungalov rezervasyon yönetimi',
     timezone: 'Europe/Istanbul',
-    language: 'tr',
-    currency: 'TRY',
+    language: 'tr', // Sabit - değiştirilemez
+    currency: 'TRY', // Sabit - değiştirilemez
     
     // Bildirim Ayarları
     emailNotifications: true,
@@ -130,9 +130,8 @@ const Settings = () => {
       const generalSettings = {
         siteName: settings.siteName,
         siteDescription: settings.siteDescription,
-        timezone: settings.timezone,
-        language: settings.language,
-        currency: settings.currency
+        timezone: settings.timezone
+        // language ve currency sabit - API'ye gönderilmez
       };
       
       await settingsService.updateGeneralSettings(generalSettings);
@@ -307,32 +306,31 @@ const Settings = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Dil
+          <label className="block text-sm font-medium text-gray-500 mb-2">
+            Dil <span className="text-xs text-gray-400">(Sabit)</span>
           </label>
           <select
             value={settings.language}
-            onChange={(e) => handleSettingChange('language', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+            disabled
+            className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
           >
             <option value="tr">Türkçe</option>
-            <option value="en">English</option>
           </select>
+          <p className="mt-1 text-xs text-gray-400">Dil ayarı sabit olarak Türkçe olarak belirlenmiştir.</p>
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Para Birimi
+          <label className="block text-sm font-medium text-gray-500 mb-2">
+            Para Birimi <span className="text-xs text-gray-400">(Sabit)</span>
           </label>
           <select
             value={settings.currency}
-            onChange={(e) => handleSettingChange('currency', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+            disabled
+            className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
           >
             <option value="TRY">Türk Lirası (₺)</option>
-            <option value="USD">Amerikan Doları ($)</option>
-            <option value="EUR">Euro (€)</option>
           </select>
+          <p className="mt-1 text-xs text-gray-400">Para birimi sabit olarak Türk Lirası olarak belirlenmiştir.</p>
         </div>
       </div>
     </div>
