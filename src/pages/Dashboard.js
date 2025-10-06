@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatPrice, reservations, getBungalowById, getCustomerById, RESERVATION_STATUS, bungalows, customers, CUSTOMER_STATUS, getReservationStatusBadge, getPaymentStatusBadge } from '../data/data';
+import { formatPrice, getBungalowById, getCustomerById, getReservationStatusBadge, getPaymentStatusBadge } from '../data/data';
 import { 
   CalendarIcon, 
   UsersIcon, 
@@ -18,40 +18,21 @@ const Dashboard = () => {
   const [isUpcomingExpanded, setIsUpcomingExpanded] = useState(false);
   const [isTodaysExpanded, setIsTodaysExpanded] = useState(false);
 
-  // Bugünün rezervasyonları (giriş tarihi bugün olanlar)
-  const today = new Date().toISOString().split('T')[0];
-  const todaysReservations = reservations.filter(res => {
-    const checkInDate = res.checkInDate.split('T')[0];
-    return checkInDate === today;
-  }).slice(0, bungalows.length); // Maksimum bungalov sayısı kadar göster
-
-  // Yaklaşan rezervasyonlar (önümüzdeki 7 gün)
-  const nextWeek = new Date();
-  nextWeek.setDate(nextWeek.getDate() + 7);
-  const upcomingReservations = reservations.filter(res => {
-    const checkInDate = new Date(res.checkInDate);
-    const today = new Date();
-    return checkInDate > today && checkInDate <= nextWeek;
-  }).slice(0, 8); // 8 rezervasyon göster
-
-  // Gerçek verilerle hesaplamalar
-  const totalReservations = reservations.length;
-  const activeReservations = reservations.filter(res => res.status === RESERVATION_STATUS.CHECKED_IN).length;
-  const totalRevenue = reservations.reduce((sum, res) => sum + res.totalPrice, 0);
-  const paidRevenue = reservations.reduce((sum, res) => sum + res.paidAmount, 0);
+  // Boş veri durumu için varsayılan değerler
+  const todaysReservations = [];
+  const upcomingReservations = [];
+  
+  // Boş verilerle hesaplamalar
+  const totalReservations = 0;
+  const activeReservations = 0;
+  const totalRevenue = 0;
+  const paidRevenue = 0;
   
   // Müşteri istatistikleri
-  const totalCustomers = customers.length;
-  const activeCustomers = customers.filter(customer => customer.status === CUSTOMER_STATUS.ACTIVE).length;
-  const bannedCustomers = customers.filter(customer => customer.status === CUSTOMER_STATUS.BANNED).length;
-  
-  // Bu ayın rezervasyonları
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const thisMonthReservations = reservations.filter(res => {
-    const resDate = new Date(res.createdAt);
-    return resDate.getMonth() === currentMonth && resDate.getFullYear() === currentYear;
-  }).length;
+  const totalCustomers = 0;
+  const activeCustomers = 0;
+  const bannedCustomers = 0;
+  const thisMonthReservations = 0;
 
   // Geçen aya göre artış hesaplama (basit hesaplama)
 
