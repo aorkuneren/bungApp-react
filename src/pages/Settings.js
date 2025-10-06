@@ -11,7 +11,6 @@ import {
   PlusIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import { settingsService } from '../services/settingsService';
 import toast from 'react-hot-toast';
 
 const Settings = () => {
@@ -106,12 +105,16 @@ const Settings = () => {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      // Şimdilik sadece general settings'i yükle
-      const generalSettings = await settingsService.getGeneralSettings();
-      setSettings(prevSettings => ({
-        ...prevSettings,
-        ...generalSettings
-      }));
+      // Frontend-only mode: Load settings from localStorage
+      const savedSettings = localStorage.getItem('appSettings');
+      if (savedSettings) {
+        const parsedSettings = JSON.parse(savedSettings);
+        setSettings(prevSettings => ({
+          ...prevSettings,
+          ...parsedSettings
+        }));
+      }
+      // If no saved settings, use default values (already set in useState)
     } catch (error) {
       console.error('Ayarlar yüklenemedi:', error);
       toast.error('Ayarlar yüklenirken hata oluştu');
@@ -124,14 +127,9 @@ const Settings = () => {
   const saveGeneralSettings = async () => {
     setSaving(true);
     try {
-      const generalSettings = {
-        siteName: settings.siteName,
-        siteDescription: settings.siteDescription,
-        timezone: settings.timezone
-        // language ve currency sabit - API'ye gönderilmez
-      };
-      
-      await settingsService.updateGeneralSettings(generalSettings);
+      // Frontend-only mode: Save to localStorage
+      const currentSettings = { ...settings };
+      localStorage.setItem('appSettings', JSON.stringify(currentSettings));
       toast.success('Genel ayarlar başarıyla kaydedildi');
     } catch (error) {
       console.error('Genel ayarlar kaydedilemedi:', error);
@@ -145,15 +143,9 @@ const Settings = () => {
   const saveNotificationSettings = async () => {
     setSaving(true);
     try {
-      const notificationSettings = {
-        emailNotifications: settings.emailNotifications,
-        smsNotifications: settings.smsNotifications,
-        reservationAlerts: settings.reservationAlerts,
-        paymentAlerts: settings.paymentAlerts,
-        systemAlerts: settings.systemAlerts
-      };
-      
-      await settingsService.updateNotificationSettings(notificationSettings);
+      // Frontend-only mode: Save to localStorage
+      const currentSettings = { ...settings };
+      localStorage.setItem('appSettings', JSON.stringify(currentSettings));
       toast.success('Bildirim ayarları başarıyla kaydedildi');
     } catch (error) {
       console.error('Bildirim ayarları kaydedilemedi:', error);
@@ -167,14 +159,9 @@ const Settings = () => {
   const saveSecuritySettings = async () => {
     setSaving(true);
     try {
-      const securitySettings = {
-        twoFactorAuth: settings.twoFactorAuth,
-        sessionTimeout: settings.sessionTimeout,
-        passwordExpiry: settings.passwordExpiry,
-        loginAttempts: settings.loginAttempts
-      };
-      
-      await settingsService.updateSecuritySettings(securitySettings);
+      // Frontend-only mode: Save to localStorage
+      const currentSettings = { ...settings };
+      localStorage.setItem('appSettings', JSON.stringify(currentSettings));
       toast.success('Güvenlik ayarları başarıyla kaydedildi');
     } catch (error) {
       console.error('Güvenlik ayarları kaydedilemedi:', error);
@@ -188,22 +175,9 @@ const Settings = () => {
   const saveReservationSettings = async () => {
     setSaving(true);
     try {
-      const reservationSettings = {
-        advanceBookingDays: settings.advanceBookingDays,
-        cancellationPolicy: settings.cancellationPolicy,
-        depositRequired: settings.depositRequired,
-        depositPercentage: settings.depositPercentage,
-        maxOccupancy: settings.maxOccupancy,
-        checkInTime: settings.checkInTime,
-        checkOutTime: settings.checkOutTime,
-        minimumStay: settings.minimumStay,
-        weekendPricing: settings.weekendPricing,
-        seasonalPricing: settings.seasonalPricing,
-        monthlyPricing: settings.monthlyPricing,
-        specialDates: settings.specialDates
-      };
-      
-      await settingsService.updateReservationSettings(reservationSettings);
+      // Frontend-only mode: Save to localStorage
+      const currentSettings = { ...settings };
+      localStorage.setItem('appSettings', JSON.stringify(currentSettings));
       toast.success('Rezervasyon ayarları başarıyla kaydedildi');
     } catch (error) {
       console.error('Rezervasyon ayarları kaydedilemedi:', error);
@@ -217,13 +191,9 @@ const Settings = () => {
   const savePaymentSettings = async () => {
     setSaving(true);
     try {
-      const paymentSettings = {
-        paymentMethods: settings.paymentMethods,
-        taxRate: settings.taxRate,
-        serviceFee: settings.serviceFee
-      };
-      
-      await settingsService.updatePaymentSettings(paymentSettings);
+      // Frontend-only mode: Save to localStorage
+      const currentSettings = { ...settings };
+      localStorage.setItem('appSettings', JSON.stringify(currentSettings));
       toast.success('Ödeme ayarları başarıyla kaydedildi');
     } catch (error) {
       console.error('Ödeme ayarları kaydedilemedi:', error);

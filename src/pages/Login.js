@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, BoltIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import { useAuth } from '../context/AuthContext';
+// Frontend-only mode: no auth context
 import toast from 'react-hot-toast';
 
-const Login = () => {
-  const { login, isAuthenticated, loading } = useAuth();
+const Login = ({ onLogin, isAuthenticated }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
@@ -15,6 +14,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [dbStatus, setDbStatus] = useState(null);
   const [testingDb, setTestingDb] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -95,7 +95,7 @@ const Login = () => {
     }
 
     try {
-      await login(formData);
+      onLogin(formData);
       navigate('/dashboard');
     } catch (error) {
       // Error is handled by the auth service and displayed via toast
@@ -133,10 +133,10 @@ const Login = () => {
     });
     
     try {
-      await login({
-        email: 'admin@aorkuneren.com',
-        password: 'password'
-      });
+             onLogin({
+               email: 'admin@aorkuneren.com',
+               password: 'password'
+             });
       navigate('/dashboard');
     } catch (error) {
       console.error('Quick login error:', error);

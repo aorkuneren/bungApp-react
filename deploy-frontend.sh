@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# BungApp Deployment Script
-# Bu script projeyi production sunucusuna deploy eder
+# BungApp Frontend-Only Deployment Script
+# Bu script projeyi frontend-only olarak production sunucusuna deploy eder
 
-echo "🚀 BungApp Deployment Başlıyor..."
+echo "🚀 BungApp Frontend-Only Deployment Başlıyor..."
 
 # Renkli output için
 RED='\033[0;31m'
@@ -16,13 +16,6 @@ NC='\033[0m' # No Color
 FTP_HOST="ftp.aorkuneren.com"
 FTP_USER="demoaorkun@demo.aorkuneren.com"
 FTP_PASS="D*~eGa;Yo7{U"
-FTP_DIR="/public_html"
-
-# Database Bilgileri
-DB_HOST="localhost"
-DB_NAME="aorkunere13_bungapp"
-DB_USER="aorkunere13_bungapp"
-DB_PASS="5oEEoZAi&,Yi"
 
 echo -e "${BLUE}📦 Production build oluşturuluyor...${NC}"
 npm run build
@@ -55,7 +48,6 @@ lftp -c "
 set ftp:ssl-allow no
 open -u '$FTP_USER','$FTP_PASS' $FTP_HOST
 lcd deploy-temp
-cd $FTP_DIR
 mirror -R --delete --verbose .
 bye
 "
@@ -70,13 +62,12 @@ fi
 echo -e "${BLUE}🧹 Geçici dosyalar temizleniyor...${NC}"
 rm -rf deploy-temp
 
-echo -e "${GREEN}🎉 Frontend deployment tamamlandı!${NC}"
-echo -e "${YELLOW}📋 Sonraki adımlar:${NC}"
-echo "1. Laravel backend'i sunucuya yükle"
-echo "2. Database migration'ları çalıştır"
-echo "3. API endpoint'lerini test et"
-echo "4. https://aorkuneren.com adresini kontrol et"
+echo -e "${GREEN}🎉 Frontend-only deployment tamamlandı!${NC}"
+echo -e "${YELLOW}📋 Frontend-Only Mode:${NC}"
+echo "✅ No backend API calls"
+echo "✅ Local data storage (localStorage)"
+echo "✅ Simulated authentication"
+echo "✅ All features working with mock data"
 
-echo -e "${BLUE}🔗 Test URL'leri:${NC}"
-echo "Frontend: https://aorkuneren.com"
-echo "API Test: https://aorkuneren.com/api/test"
+echo -e "${BLUE}🔗 Test URL:${NC}"
+echo "Frontend: https://demo.aorkuneren.com"

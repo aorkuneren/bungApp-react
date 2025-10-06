@@ -14,10 +14,7 @@ import {
   Bars3Icon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
-import { useAuth } from '../context/AuthContext';
-
-const Navigation = () => {
-  const { user, logout, isAuthenticated } = useAuth();
+const Navigation = ({ user, onLogout, isAuthenticated }) => {
   const location = useLocation();
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -123,7 +120,7 @@ const Navigation = () => {
                 <button
                   onClick={() => {
                     setIsProfileDropdownOpen(false);
-                    logout();
+                    onLogout();
                   }}
                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                 >
@@ -201,7 +198,7 @@ const Navigation = () => {
                 <button
                   onClick={() => {
                     closeMobileMenu();
-                    logout();
+                    onLogout();
                   }}
                   className="flex items-center space-x-3 w-full px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
                 >
