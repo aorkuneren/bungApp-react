@@ -53,7 +53,7 @@ echo -e "${BLUE}🌐 FTP ile dosyalar yükleniyor...${NC}"
 # FTP ile dosyaları yükle
 lftp -c "
 set ftp:ssl-allow no
-open -u $FTP_USER,$FTP_PASS $FTP_HOST
+open -u '$FTP_USER','$FTP_PASS' $FTP_HOST
 lcd deploy-temp
 cd $FTP_DIR
 mirror -R --delete --verbose .

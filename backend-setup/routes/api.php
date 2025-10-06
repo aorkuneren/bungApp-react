@@ -7,6 +7,7 @@ use App\Http\Controllers\BungalowController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SettingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -88,5 +89,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('profile')->group(function () {
         Route::put('update', [AuthController::class, 'updateProfile']);
         Route::post('password', [AuthController::class, 'changePassword']);
+    });
+    
+    // Settings
+    Route::prefix('settings')->group(function () {
+        Route::get('/', [SettingsController::class, 'index']);
+        Route::get('general', [SettingsController::class, 'getGeneral']);
+        Route::put('general', [SettingsController::class, 'updateGeneral']);
+        Route::get('notifications', [SettingsController::class, 'getNotifications']);
+        Route::put('notifications', [SettingsController::class, 'updateNotifications']);
+        Route::get('security', [SettingsController::class, 'getSecurity']);
+        Route::put('security', [SettingsController::class, 'updateSecurity']);
+        Route::get('reservations', [SettingsController::class, 'getReservations']);
+        Route::put('reservations', [SettingsController::class, 'updateReservations']);
+        Route::get('payments', [SettingsController::class, 'getPayments']);
+        Route::put('payments', [SettingsController::class, 'updatePayments']);
     });
 });

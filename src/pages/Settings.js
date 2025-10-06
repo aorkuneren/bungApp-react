@@ -101,6 +101,8 @@ const Settings = () => {
   // Ayarları yükle
   useEffect(() => {
     loadSettings();
+    // Test toast
+    toast.success('Settings sayfası yüklendi!');
   }, []);
 
   const loadSettings = async () => {
