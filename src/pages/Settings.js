@@ -106,14 +106,11 @@ const Settings = () => {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const allSettings = await settingsService.getAllSettings();
+      // Şimdilik sadece general settings'i yükle
+      const generalSettings = await settingsService.getGeneralSettings();
       setSettings(prevSettings => ({
         ...prevSettings,
-        ...allSettings.general,
-        ...allSettings.notifications,
-        ...allSettings.security,
-        ...allSettings.reservations,
-        ...allSettings.payments
+        ...generalSettings
       }));
     } catch (error) {
       console.error('Ayarlar yüklenemedi:', error);
