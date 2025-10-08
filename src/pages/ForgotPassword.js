@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeftIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -38,26 +39,31 @@ const ForgotPassword = () => {
     // Validation
     if (!email.trim()) {
       setError('E-posta adresi boş bırakılamaz');
+      toast.error('E-posta adresi boş bırakılamaz');
       return;
     }
     
     if (!validateEmail(email)) {
       setError('Lütfen geçerli bir e-posta adresi giriniz');
+      toast.error('Lütfen geçerli bir e-posta adresi giriniz');
       return;
     }
 
     // Email format kontrolü geçtiyse, sistemde kayıtlı olup olmadığını kontrol et
     if (!checkEmailExists(email)) {
       setError('Bu e-posta adresi sistemde kayıtlı değil. Lütfen kayıtlı e-posta adresinizi giriniz.');
+      toast.error('Bu e-posta adresi sistemde kayıtlı değil');
       return;
     }
 
     setIsLoading(true);
+    toast.loading('Şifre sıfırlama e-postası gönderiliyor...');
     
     // Simulate API call - email sistemde kayıtlı
     setTimeout(() => {
       setIsLoading(false);
       setIsSuccess(true);
+      toast.success('Şifre sıfırlama e-postası başarıyla gönderildi!');
     }, 2000);
   };
 

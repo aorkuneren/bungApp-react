@@ -182,8 +182,8 @@ const Reports = () => {
   // Genel istatistikler
   const getGeneralStats = () => {
     const totalReservations = filteredReservations.length;
-    const totalRevenue = filteredReservations.reduce((sum, res) => sum + res.totalPrice, 0);
-    const paidRevenue = filteredReservations.reduce((sum, res) => sum + res.paidAmount, 0);
+    const totalRevenue = filteredReservations.reduce((sum, res) => sum + (res.totalPrice || 0), 0);
+    const paidRevenue = filteredReservations.reduce((sum, res) => sum + (res.paidAmount || 0), 0);
     const pendingRevenue = totalRevenue - paidRevenue;
     const averageReservationValue = totalReservations > 0 ? totalRevenue / totalReservations : 0;
     
@@ -212,7 +212,7 @@ const Reports = () => {
           };
         }
         bungalowStats[bungalow.id].reservations++;
-        bungalowStats[bungalow.id].revenue += res.totalPrice;
+        bungalowStats[bungalow.id].revenue += (res.totalPrice || 0);
       }
     });
     
@@ -236,7 +236,7 @@ const Reports = () => {
           };
         }
         customerStats[customer.id].reservations++;
-        customerStats[customer.id].revenue += res.totalPrice;
+        customerStats[customer.id].revenue += (res.totalPrice || 0);
       }
     });
     
@@ -262,7 +262,7 @@ const Reports = () => {
         monthlyStats[month] = { count: 0, revenue: 0 };
       }
       monthlyStats[month].count++;
-      monthlyStats[month].revenue += res.totalPrice;
+      monthlyStats[month].revenue += (res.totalPrice || 0);
     });
     
     return { statusStats, paymentStats, monthlyStats };
@@ -284,7 +284,7 @@ const Reports = () => {
     filteredReservations.forEach(res => {
       const month = new Date(res.createdAt).getMonth();
       monthlyData[month]++;
-      monthlyRevenue[month] += res.totalPrice;
+      monthlyRevenue[month] += (res.totalPrice || 0);
     });
 
     return {
@@ -517,7 +517,7 @@ const Reports = () => {
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Ortalama:</span>
-                        <span className="font-medium text-gray-900">{formatPrice(stat.revenue / stat.reservations)}</span>
+                        <span className="font-medium text-gray-900">{formatPrice(stat.reservations > 0 ? stat.revenue / stat.reservations : 0)}</span>
                       </div>
                     </div>
                     <div className="mt-3 bg-gray-200 rounded-full h-2">

@@ -12,23 +12,14 @@ import {
   CurrencyDollarIcon,
   MapPinIcon,
   ClockIcon,
-  EyeIcon
+  EyeIcon,
+  ChartBarIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline';
 import { BadgeTurkishLiraIcon } from '../components/ui/icons/lucide-badge-turkish-lira';
 import { bungalows, getReservationsByBungalowId, getCustomerById, formatPrice, formatDate, RESERVATION_STATUS } from '../data/data';
+import { OccupancyCalendar, StatCard, Tooltip } from '../components/ui';
 
-// Tooltip component
-const Tooltip = ({ content, children }) => {
-  return (
-    <div className="relative group">
-      {children}
-      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-        {content}
-        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-      </div>
-    </div>
-  );
-};
 
 const BungalowDetailsPage = () => {
   const { id } = useParams();
@@ -169,6 +160,22 @@ const BungalowDetailsPage = () => {
   const averageStay = totalReservations > 0 
     ? Math.round(bungalowReservations.reduce((sum, res) => sum + res.nights, 0) / totalReservations)
     : 0;
+  
+  // Ek istatistikler
+  const completedReservations = bungalowReservations.filter(res => 
+    res.status === RESERVATION_STATUS.CHECKED_OUT
+  ).length;
+  const totalGuests = bungalowReservations.reduce((sum, res) => sum + res.guestCount, 0);
+  const averageGuests = totalReservations > 0 ? Math.round(totalGuests / totalReservations) : 0;
+  
+  // Bu ay için istatistikler
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const thisMonthReservations = bungalowReservations.filter(res => {
+    const resDate = new Date(res.checkInDate);
+    return resDate.getMonth() === currentMonth && resDate.getFullYear() === currentYear;
+  });
+  const thisMonthRevenue = thisMonthReservations.reduce((sum, res) => sum + res.totalPrice, 0);
 
   if (!bungalow) {
     return (
@@ -189,7 +196,7 @@ const BungalowDetailsPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate('/bungalows')}
+                onClick={() => navigate(-1)}
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <ArrowLeftIcon className="w-5 h-5" />
@@ -201,7 +208,6 @@ const BungalowDetailsPage = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              {getBungalowStatusBadge(bungalow.status)}
               <button 
                 onClick={() => navigate(`/bungalows/${bungalow.id}/edit`)}
                 className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
@@ -241,7 +247,7 @@ const BungalowDetailsPage = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Günlük Fiyat</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gecelik Fiyat</label>
                   <div className="flex items-center text-sm text-gray-900 bg-gray-50 p-2 rounded border">
                     <CurrencyDollarIcon className="w-4 h-4 text-gray-400 mr-2" />
                     {formatPrice(bungalow.dailyPrice)}
@@ -267,54 +273,59 @@ const BungalowDetailsPage = () => {
 
             {/* İstatistikler Kartı */}
             <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <CalendarIcon className="w-5 h-5 text-gray-600" />
+              <div className="flex items-center space-x-3 mb-6">
+                <ChartBarIcon className="w-5 h-5 text-gray-600" />
                 <h2 className="text-lg font-medium text-gray-900">İstatistikler</h2>
               </div>
               
-              <div className="space-y-4">
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Toplam Rezervasyon</p>
-                      <p className="text-xl font-bold text-gray-900">{totalReservations}</p>
-                    </div>
-                    <CalendarIcon className="w-6 h-6 text-gray-600" />
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                <StatCard
+                  title="Toplam Rezervasyon"
+                  value={totalReservations}
+                  icon={CalendarIcon}
+                  color="blue"
+                  subtitle={`${completedReservations} tamamlandı`}
+                />
                 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Aktif Rezervasyon</p>
-                      <p className="text-xl font-bold text-gray-900">{activeReservations}</p>
-                    </div>
-                    <CheckCircleIcon className="w-6 h-6 text-gray-600" />
-                  </div>
-                </div>
+                <StatCard
+                  title="Aktif Rezervasyon"
+                  value={activeReservations}
+                  icon={CheckCircleIcon}
+                  color="green"
+                  subtitle="Şu anda dolu"
+                />
                 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Toplam Gelir</p>
-                      <p className="text-xl font-bold text-gray-900">{formatPrice(totalRevenue)}</p>
-                    </div>
-                    <BadgeTurkishLiraIcon className="w-6 h-6 text-gray-600" />
-                  </div>
-                </div>
+                <StatCard
+                  title="Toplam Gelir"
+                  value={formatPrice(totalRevenue)}
+                  icon={BadgeTurkishLiraIcon}
+                  color="green"
+                  subtitle={`Bu ay: ${formatPrice(thisMonthRevenue)}`}
+                />
                 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Ortalama Konaklama</p>
-                      <p className="text-xl font-bold text-gray-900">{averageStay} gece</p>
-                    </div>
-                    <ClockIcon className="w-6 h-6 text-gray-600" />
-                  </div>
-                </div>
+                <StatCard
+                  title="Ortalama Konaklama"
+                  value={`${averageStay} gece`}
+                  icon={ClockIcon}
+                  color="yellow"
+                  subtitle={`Ortalama ${averageGuests} kişi`}
+                />
               </div>
             </div>
           </div>
+
+          {/* Doluluk Takvimi */}
+          <OccupancyCalendar
+            bungalowId={bungalow.id}
+            reservations={bungalowReservations}
+            onDateClick={(day) => {
+              if (day.reservations.length > 0) {
+                // Rezervasyon detaylarını göster
+                console.log('Tarih tıklandı:', day.dateStr, day.reservations);
+              }
+            }}
+            className="mb-8"
+          />
 
           {/* Alt Bölüm - Rezervasyon Geçmişi */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -493,13 +504,6 @@ const BungalowDetailsPage = () => {
                 <CalendarIcon className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                 <p className="text-gray-500 font-medium">Henüz rezervasyon bulunmuyor</p>
                 <p className="text-gray-400 text-sm mt-1">Bu bungalova ait rezervasyon kaydı bulunmamaktadır.</p>
-                <button
-                  onClick={() => navigate(`/create-reservation?bungalowId=${bungalow.id}`)}
-                  className="mt-4 flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors mx-auto"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  <span>İlk Rezervasyonu Oluştur</span>
-                </button>
               </div>
             )}
           </div>

@@ -11,16 +11,79 @@ import {
   DocumentCheckIcon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
-import { bungalows } from '../data/dataBungalows';
-import { reservations } from '../data/dataReservations';
-import { customers } from '../data/dataCustomers';
+import { bungalows, customers, reservationService, customerService, generateReservationCode, calculateTotalPrice, calculateNights, formatNightlyPrice, getSettings } from '../data/data';
 
 const CreateReservation = () => {
   const [searchParams] = useSearchParams();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedBungalow, setSelectedBungalow] = useState(null);
-  const [selectedDates, setSelectedDates] = useState([]);
+  const [selectedDates, setSelectedDates] = useState({
+    checkIn: '',
+    checkOut: ''
+  });
+
+  // Validation fonksiyonları
+  const validateTC = (tc) => {
+    if (!tc) return true; // TC zorunlu değil
+    if (tc.length !== 11) return false;
+    if (!/^\d+$/.test(tc)) return false;
+    
+    const digits = tc.split('').map(Number);
+    const sumOdd = digits[0] + digits[2] + digits[4] + digits[6] + digits[8];
+    const sumEven = digits[1] + digits[3] + digits[5] + digits[7];
+    
+    const check1 = (sumOdd * 7 - sumEven) % 10;
+    const check2 = (sumOdd + sumEven + digits[9]) % 10;
+    
+    return check1 === digits[9] && check2 === digits[10];
+  };
+
+  const validatePhone = (phone) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    return cleanPhone.length === 11 && cleanPhone.startsWith('0');
+  };
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePassport = (passport) => {
+    return passport.length >= 6 && passport.length <= 12 && /^[A-Z0-9]+$/.test(passport);
+  };
+
+  // Input mask fonksiyonları
+  const formatTC = (value) => {
+    const numbers = value.replace(/\D/g, '');
+    return numbers.slice(0, 11);
+  };
+
+  const formatPhone = (value) => {
+    const numbers = value.replace(/\D/g, '');
+    
+    // 0 ile başlayan numaralar için özel formatlama
+    if (numbers.startsWith('0') && numbers.length > 1) {
+      if (numbers.length <= 4) return numbers.slice(0, 4);
+      if (numbers.length <= 7) return `${numbers.slice(0, 4)} ${numbers.slice(4)}`;
+      if (numbers.length <= 9) return `${numbers.slice(0, 4)} ${numbers.slice(4, 7)} ${numbers.slice(7)}`;
+      if (numbers.length <= 11) return `${numbers.slice(0, 4)} ${numbers.slice(4, 7)} ${numbers.slice(7, 9)} ${numbers.slice(9)}`;
+      return `${numbers.slice(0, 4)} ${numbers.slice(4, 7)} ${numbers.slice(7, 9)} ${numbers.slice(9, 11)}`;
+    }
+    
+    // Normal formatlama (0 ile başlamayan)
+    if (numbers.length <= 3) return numbers;
+    if (numbers.length <= 6) return `${numbers.slice(0, 3)} ${numbers.slice(3)}`;
+    if (numbers.length <= 8) return `${numbers.slice(0, 3)} ${numbers.slice(3, 6)} ${numbers.slice(6)}`;
+    if (numbers.length <= 10) return `${numbers.slice(0, 3)} ${numbers.slice(3, 6)} ${numbers.slice(6, 8)} ${numbers.slice(8)}`;
+    return `${numbers.slice(0, 3)} ${numbers.slice(3, 6)} ${numbers.slice(6, 8)} ${numbers.slice(8, 11)}`;
+  };
+
+  const formatPassport = (value) => {
+    return value.replace(/[^A-Z0-9]/g, '').toUpperCase().slice(0, 12);
+  };
+  const [showDateGuide, setShowDateGuide] = useState(true);
   const [customerInfo, setCustomerInfo] = useState({
+    id: null,
     firstName: '',
     lastName: '',
     email: '',
@@ -28,6 +91,14 @@ const CreateReservation = () => {
     tcNumber: '',
     passportNumber: '',
     isTurkishCitizen: true
+  });
+  const [validationErrors, setValidationErrors] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    tcNumber: '',
+    passportNumber: ''
   });
   const [reservationDetails, setReservationDetails] = useState({
     totalNights: 0,
@@ -46,6 +117,14 @@ const CreateReservation = () => {
   const [depositAmount, setDepositAmount] = useState(0);
   const [guestCount, setGuestCount] = useState(1);
   const [reservationNotes, setReservationNotes] = useState('');
+
+  // Rezervasyonları dinamik olarak yükle
+  const [reservations, setReservations] = useState([]);
+
+  // Rezervasyonları yükle
+  useEffect(() => {
+    setReservations(reservationService.getAll());
+  }, []);
 
   // URL parametresinden bungalowId'yi al ve otomatik seç
   useEffect(() => {
@@ -79,39 +158,81 @@ const CreateReservation = () => {
     return date.toISOString().split('T')[0];
   };
 
+  // Tarih ve saat formatı (otel sistemi için)
+  const formatDateTime = (dateString, time) => {
+    const date = new Date(dateString);
+    const formattedDate = date.toLocaleDateString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    return `${formattedDate} ${time}`;
+  };
+
   const isDateAvailable = (date) => {
     // Bu tarihte rezervasyon var mı kontrol et
     return !reservations.some(reservation => {
+      if (reservation.bungalowId !== selectedBungalow?.id) return false;
+      
       const checkIn = new Date(reservation.checkInDate);
       const checkOut = new Date(reservation.checkOutDate);
-      return date >= checkIn && date < checkOut && reservation.bungalowId === selectedBungalow?.id;
+      
+      // Çıkış günü aynı gün giriş yapılabilir
+      // Sadece giriş gününden çıkış gününe kadar (çıkış günü hariç) dolu
+      return date >= checkIn && date < checkOut;
     });
   };
 
-  const isDateSelected = (date) => {
-    const dateStr = formatDate(date);
-    return selectedDates.includes(dateStr);
-  };
 
   const handleDateClick = (date) => {
     const dateStr = formatDate(date);
     
-    if (selectedDates.includes(dateStr)) {
-      // Tarihi kaldır
-      setSelectedDates(selectedDates.filter(d => d !== dateStr));
-    } else {
-      // Tarihi ekle - sadece müsait tarihleri ekle
-      if (isDateAvailable(date)) {
-        setSelectedDates([...selectedDates, dateStr]);
-      }
+    if (!isDateAvailable(date)) {
+      return; // Müsait olmayan tarihleri seçme
     }
+
+    if (!selectedDates.checkIn) {
+      // İlk tarih seçimi - check-in
+      setSelectedDates({
+        checkIn: dateStr,
+        checkOut: ''
+      });
+    } else if (!selectedDates.checkOut) {
+      // İkinci tarih seçimi - check-out
+      if (new Date(dateStr) > new Date(selectedDates.checkIn)) {
+        setSelectedDates(prev => ({
+          ...prev,
+          checkOut: dateStr
+        }));
+      } else {
+        // Eğer seçilen tarih check-in'den önceyse, yeni check-in yap
+        setSelectedDates({
+          checkIn: dateStr,
+          checkOut: ''
+        });
+      }
+    } else {
+      // Yeni seçim yap - sıfırla
+      setSelectedDates({
+        checkIn: dateStr,
+        checkOut: ''
+      });
+    }
+  };
+
+  // Gece sayısını hesapla
+  const getNightsCount = () => {
+    if (selectedDates.checkIn && selectedDates.checkOut) {
+      return calculateNights(selectedDates.checkIn, selectedDates.checkOut);
+    }
+    return 0;
   };
 
   // Rezervasyon hesaplama
   const calculateReservation = () => {
-    if (selectedBungalow && selectedDates.length > 0) {
-      const nights = selectedDates.length;
-      const basePrice = useCustomPrice ? customPrice : (selectedBungalow.dailyPrice * nights);
+    if (selectedBungalow && selectedDates.checkIn && selectedDates.checkOut) {
+      const nights = calculateNights(selectedDates.checkIn, selectedDates.checkOut);
+      const basePrice = useCustomPrice ? customPrice : calculateTotalPrice(selectedBungalow.id, selectedDates.checkIn, selectedDates.checkOut);
       
       // Kapora hesaplama - sadece alındıysa kullanıcının girdiği miktar, değilse %20
       const calculatedDepositAmount = Math.round(basePrice * 0.2); // %20 kapora
@@ -163,9 +284,68 @@ const CreateReservation = () => {
   };
 
   const handleCustomerInfoChange = (field, value) => {
+    let formattedValue = value;
+    let error = '';
+
+    // Input mask uygula
+    switch (field) {
+      case 'phone':
+        formattedValue = formatPhone(value);
+        break;
+      case 'tcNumber':
+        formattedValue = formatTC(value);
+        break;
+      case 'passportNumber':
+        formattedValue = formatPassport(value);
+        break;
+      case 'email':
+        formattedValue = value.toLowerCase();
+        break;
+      default:
+        formattedValue = value;
+    }
+
+    // Validation kontrolü
+    switch (field) {
+      case 'firstName':
+      case 'lastName':
+        if (formattedValue.length < 2) {
+          error = 'En az 2 karakter olmalıdır';
+        }
+        break;
+      case 'email':
+        if (formattedValue && !validateEmail(formattedValue)) {
+          error = 'Geçerli bir e-posta adresi giriniz';
+        }
+        break;
+      case 'phone':
+        if (formattedValue && !validatePhone(formattedValue)) {
+          error = 'Geçerli bir telefon numarası giriniz (0XXXXXXXXXX)';
+        }
+        break;
+      case 'tcNumber':
+        if (formattedValue && !validateTC(formattedValue)) {
+          error = 'Geçerli bir TC kimlik numarası giriniz';
+        }
+        break;
+      case 'passportNumber':
+        if (formattedValue && !validatePassport(formattedValue)) {
+          error = 'Geçerli bir pasaport numarası giriniz (6-12 karakter, harf ve rakam)';
+        }
+        break;
+      default:
+        // No validation needed for other fields
+        break;
+    }
+
     setCustomerInfo(prev => ({
       ...prev,
-      [field]: value
+      [field]: formattedValue
+    }));
+
+    setValidationErrors(prev => ({
+      ...prev,
+      [field]: error
     }));
   };
 
@@ -187,6 +367,7 @@ const CreateReservation = () => {
   const handleCustomerSelect = (customer) => {
     setSelectedCustomer(customer);
     setCustomerInfo({
+      id: customer.id,
       firstName: customer.firstName,
       lastName: customer.lastName,
       email: customer.email,
@@ -204,6 +385,7 @@ const CreateReservation = () => {
     setSelectedCustomer(null);
     setCustomerSearch('');
     setCustomerInfo({
+      id: null,
       firstName: '',
       lastName: '',
       email: '',
@@ -221,22 +403,114 @@ const CreateReservation = () => {
   };
 
   const handleSubmitReservation = () => {
-    // Rezervasyon oluşturma işlemi
-    console.log('Rezervasyon oluşturuluyor:', {
-      bungalow: selectedBungalow,
-      dates: selectedDates,
-      customer: customerInfo,
-      guestCount: guestCount,
-      notes: reservationNotes,
-      details: reservationDetails,
-      depositReceived: depositReceived,
-      depositAmount: depositAmount,
-      customPriceUsed: useCustomPrice,
-      customPriceValue: useCustomPrice ? customPrice : null
-    });
-    
-    // Başarı mesajı ve yönlendirme
-    toast.success('Rezervasyon başarıyla oluşturuldu!');
+    try {
+      // Tarih kontrolü yap
+      if (!selectedDates.checkIn || !selectedDates.checkOut) {
+        toast.error('Lütfen giriş ve çıkış tarihlerini seçin!');
+        return;
+      }
+
+      // Seçilen tarih aralığında çakışma var mı kontrol et
+      const checkInDate = new Date(selectedDates.checkIn);
+      const checkOutDate = new Date(selectedDates.checkOut);
+      
+      const hasConflict = reservations.some(reservation => {
+        if (reservation.bungalowId !== selectedBungalow.id) return false;
+        
+        const existingCheckIn = new Date(reservation.checkInDate);
+        const existingCheckOut = new Date(reservation.checkOutDate);
+        
+        // Çakışma kontrolü: yeni rezervasyon mevcut rezervasyonla çakışıyor mu?
+        // Çıkış günü aynı gün giriş yapılabilir
+        return (checkInDate < existingCheckOut && checkOutDate > existingCheckIn);
+      });
+
+      if (hasConflict) {
+        toast.error('Seçilen tarih aralığında başka bir rezervasyon bulunuyor!');
+        return;
+      }
+
+      // Müşteri oluştur veya güncelle
+      let customerId = customerInfo.id;
+      if (!customerId) {
+        // Yeni müşteri oluştur
+        const customerData = {
+          firstName: customerInfo.firstName,
+          lastName: customerInfo.lastName,
+          email: customerInfo.email,
+          phone: customerInfo.phone,
+          tcNumber: customerInfo.tcNumber || '',
+          passportNumber: customerInfo.passportNumber || '',
+          isTurkishCitizen: customerInfo.isTurkishCitizen,
+          status: 'Aktif',
+          registrationDate: new Date().toISOString().split('T')[0],
+          totalReservations: 0,
+          totalSpent: 0,
+          lastReservationDate: null
+        };
+        
+        const newCustomer = customerService.create(customerData);
+        customerId = newCustomer.id;
+        console.log('Yeni müşteri oluşturuldu:', newCustomer);
+      }
+
+      // Rezervasyon verilerini hazırla
+      const nights = calculateNights(selectedDates.checkIn, selectedDates.checkOut);
+      const totalPrice = useCustomPrice ? customPrice : calculateTotalPrice(selectedBungalow.id, selectedDates.checkIn, selectedDates.checkOut);
+      const remainingAmount = totalPrice - depositAmount;
+      
+      const reservationCode = generateReservationCode();
+      const confirmationCode = generateReservationCode(); // Onay kodu
+      const confirmationExpiresAt = new Date();
+      confirmationExpiresAt.setHours(confirmationExpiresAt.getHours() + 24); // 24 saat geçerli
+      
+      const reservationData = {
+        code: reservationCode,
+        reservationCode: reservationCode, // Rezervasyon listesinde kullanılan alan
+        confirmationCode: confirmationCode, // Onay kodu
+        customerId: customerId,
+        bungalowId: selectedBungalow.id,
+        checkInDate: selectedDates.checkIn,
+        checkOutDate: selectedDates.checkOut,
+        nights: nights,
+        totalPrice: totalPrice,
+        status: 'Bekleyen',
+        paymentStatus: 'Ödenmedi', // Onay bekliyor
+        depositAmount: depositAmount,
+        remainingAmount: remainingAmount,
+        guestCount: guestCount,
+        notes: reservationNotes,
+        details: reservationDetails,
+        confirmationExpiresAt: confirmationExpiresAt.toISOString(),
+        confirmationLink: `${window.location.origin}/confirm/${confirmationCode}`,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Local Storage'a rezervasyon kaydet
+      const newReservation = reservationService.create(reservationData);
+      console.log('Rezervasyon oluşturuldu:', newReservation);
+      
+      // Rezervasyonları güncelle
+      setReservations(reservationService.getAll());
+      
+      // Başarı mesajı ve yönlendirme
+      const settings = getSettings();
+      const whatsappEnabled = settings.whatsappIntegration?.enabled;
+      const emailEnabled = settings.emailTemplates?.enabled;
+      
+      let message = 'Rezervasyon başarıyla oluşturuldu!';
+      if (whatsappEnabled || emailEnabled) {
+        message += ' Rezervasyon detay sayfasından müşteriye onay linki gönderebilirsiniz.';
+      }
+      
+      toast.success(message);
+      
+      // Rezervasyon detay sayfasına yönlendir
+      window.location.href = `/reservations/${newReservation.id}`;
+    } catch (error) {
+      console.error('Rezervasyon oluşturma hatası:', error);
+      toast.error('Rezervasyon oluşturulurken hata oluştu!');
+    }
   };
 
   const renderStepIndicator = () => (
@@ -289,7 +563,7 @@ const CreateReservation = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {bungalows.map((bungalow) => (
+        {bungalows.filter(bungalow => bungalow.status === 'Aktif').map((bungalow) => (
           <div
             key={bungalow.id}
             onClick={() => setSelectedBungalow(bungalow)}
@@ -307,7 +581,7 @@ const CreateReservation = () => {
             </div>
             <div className="space-y-2 text-sm text-gray-600">
               <p>Kapasite: {bungalow.capacity} kişi</p>
-              <p>Fiyat: ₺{bungalow.dailyPrice.toLocaleString()}/gece</p>
+              <p>Fiyat: {formatNightlyPrice(bungalow.dailyPrice)}</p>
               <p>Durum: <span className={`px-2 py-1 rounded-full text-xs ${
                 bungalow.status === 'Aktif' 
                   ? 'bg-green-100 text-green-800' 
@@ -355,9 +629,57 @@ const CreateReservation = () => {
       <div className="space-y-6">
         <div>
           <h3 className="text-lg font-medium text-gray-900 mb-4">Tarih Seçimi</h3>
-          <p className="text-sm text-gray-600 mb-6">
+          <p className="text-sm text-gray-600 mb-4">
             {selectedBungalow ? `${selectedBungalow.name} için` : 'Bungalov seçin'} müsait tarihleri seçin
           </p>
+          
+          {/* Tarih Seçim Rehberi */}
+          {showDateGuide && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <CalendarIcon className="w-5 h-5 text-blue-600 mt-0.5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="text-sm font-medium text-blue-900">Nasıl Tarih Seçilir?</h4>
+                    <button
+                      onClick={() => setShowDateGuide(false)}
+                      className="text-blue-400 hover:text-blue-600 transition-colors"
+                      title="Rehberi kapat"
+                    >
+                      <XMarkIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                <div className="text-sm text-blue-800 space-y-1">
+                  <p>1. <strong>Giriş tarihini</strong> seçin (14:00'te giriş)</p>
+                  <p>2. <strong>Çıkış tarihini</strong> seçin (10:00'da çıkış)</p>
+                  <p>3. Aralarındaki tüm günler otomatik seçilir</p>
+                  <p className="text-xs text-blue-600">💡 Çıkış günü aynı gün yeni giriş yapılabilir</p>
+                  {selectedDates.checkIn && !selectedDates.checkOut && (
+                    <p className="text-blue-600 font-medium">✓ Giriş tarihi seçildi, şimdi çıkış tarihini seçin</p>
+                  )}
+                  {selectedDates.checkIn && selectedDates.checkOut && (
+                    <p className="text-green-600 font-medium">✓ Tarih aralığı seçildi: {getNightsCount()} gece</p>
+                  )}
+                </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Rehberi Tekrar Açma Butonu */}
+          {!showDateGuide && (
+            <div className="mb-6">
+              <button
+                onClick={() => setShowDateGuide(true)}
+                className="inline-flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                <CalendarIcon className="w-4 h-4" />
+                <span>Tarih seçim rehberini göster</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {selectedBungalow && (
@@ -409,9 +731,14 @@ const CreateReservation = () => {
                   const day = i + 1;
                   const date = new Date(displayYear, displayMonth, day);
                   const isAvailable = isDateAvailable(date);
-                  const isSelected = isDateSelected(date);
                   const isToday = date.toDateString() === today.toDateString();
                   const isPast = date < today;
+                  
+                  // Tarih aralığındaki günleri kontrol et
+                  const isInRange = selectedDates.checkIn && selectedDates.checkOut && 
+                    date > new Date(selectedDates.checkIn) && date < new Date(selectedDates.checkOut);
+                  const isCheckIn = selectedDates.checkIn === formatDate(date);
+                  const isCheckOut = selectedDates.checkOut === formatDate(date);
 
                   return (
                     <button
@@ -423,8 +750,10 @@ const CreateReservation = () => {
                           ? 'text-gray-300 cursor-not-allowed bg-gray-50'
                           : !isAvailable
                           ? 'bg-red-50 text-red-500 cursor-not-allowed border border-red-200'
-                          : isSelected
-                          ? 'bg-gray-900 text-white shadow-lg transform scale-105'
+                          : isCheckIn || isCheckOut
+                          ? 'bg-gray-900 text-white shadow-lg transform scale-105 border-2 border-gray-700'
+                          : isInRange
+                          ? 'bg-blue-200 text-blue-800 border border-blue-300 shadow-md'
                           : isToday
                           ? 'bg-blue-100 text-blue-700 border-2 border-blue-300 hover:bg-blue-200 hover:scale-105'
                           : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 hover:scale-105 hover:shadow-md'
@@ -439,7 +768,7 @@ const CreateReservation = () => {
 
             {/* Legend */}
             <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-              <div className="flex items-center justify-center space-x-8 text-sm">
+              <div className="flex items-center justify-center space-x-6 text-sm flex-wrap">
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-green-100 border border-green-300 rounded-full mr-2"></div>
                   <span className="text-gray-700 font-medium">Müsait</span>
@@ -450,7 +779,11 @@ const CreateReservation = () => {
                 </div>
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-gray-900 rounded-full mr-2"></div>
-                  <span className="text-gray-700 font-medium">Seçili</span>
+                  <span className="text-gray-700 font-medium">Giriş/Çıkış</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-blue-200 border border-blue-300 rounded-full mr-2"></div>
+                  <span className="text-gray-700 font-medium">Seçili Aralık</span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-blue-100 border-2 border-blue-300 rounded-full mr-2"></div>
@@ -461,7 +794,7 @@ const CreateReservation = () => {
           </div>
         )}
 
-        {selectedDates.length > 0 && (
+        {getNightsCount() > 0 && (
           <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl shadow-sm p-6">
             {/* Manuel Fiyat Seçeneği */}
             <div className="mb-4">
@@ -473,7 +806,7 @@ const CreateReservation = () => {
                     onClick={() => {
                       setUseCustomPrice(!useCustomPrice);
                       if (!useCustomPrice) {
-                        setCustomPrice(selectedBungalow?.dailyPrice * selectedDates.length || 0);
+                        setCustomPrice(selectedBungalow?.dailyPrice * getNightsCount() || 0);
                       }
                     }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -496,12 +829,14 @@ const CreateReservation = () => {
                   </label>
                   <div className="flex items-center space-x-3">
                     <input
-                      type="number"
-                      value={customPrice}
-                      onChange={(e) => setCustomPrice(parseInt(e.target.value) || 0)}
+                      type="text"
+                      value={customPrice === 0 ? '' : customPrice.toLocaleString('tr-TR')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^\d]/g, '');
+                        setCustomPrice(parseInt(value) || 0);
+                      }}
                       className="flex-1 h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                      placeholder="Toplam fiyatı girin"
-                      min="0"
+                      placeholder="0"
                     />
                     <button
                       onClick={() => {
@@ -514,7 +849,7 @@ const CreateReservation = () => {
                     </button>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    Varsayılan fiyat: ₺{selectedBungalow?.dailyPrice.toLocaleString()} × {selectedDates.length} gece = ₺{(selectedBungalow?.dailyPrice * selectedDates.length || 0).toLocaleString()}
+                    Varsayılan fiyat: ₺{selectedBungalow?.dailyPrice.toLocaleString()}/gece × {getNightsCount()} gece = ₺{(selectedBungalow?.dailyPrice * getNightsCount() || 0).toLocaleString()}
                   </p>
                 </div>
               )}
@@ -537,7 +872,7 @@ const CreateReservation = () => {
                         setDepositReceived(!depositReceived);
                         if (!depositReceived) {
                           // Kapora alındı olarak işaretlendiğinde varsayılan %20 miktarını set et
-                          const defaultDeposit = Math.round((useCustomPrice ? customPrice : (selectedBungalow?.dailyPrice * selectedDates.length || 0)) * 0.2);
+                          const defaultDeposit = Math.round((useCustomPrice ? customPrice : (selectedBungalow?.dailyPrice * getNightsCount() || 0)) * 0.2);
                           setDepositAmount(defaultDeposit);
                         } else {
                           // Kapora alınmadı olarak işaretlendiğinde miktarı sıfırla
@@ -564,16 +899,18 @@ const CreateReservation = () => {
                     </label>
                     <div className="flex items-center space-x-3">
                       <input
-                        type="number"
-                        value={depositAmount}
-                        onChange={(e) => setDepositAmount(parseInt(e.target.value) || 0)}
+                        type="text"
+                        value={depositAmount === 0 ? '' : depositAmount.toLocaleString('tr-TR')}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^\d]/g, '');
+                          setDepositAmount(parseInt(value) || 0);
+                        }}
                         className="flex-1 h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                        placeholder="Alınan kapora miktarını girin"
-                        min="0"
+                        placeholder="0"
                       />
                       <button
                         onClick={() => {
-                          const defaultDeposit = Math.round((useCustomPrice ? customPrice : (selectedBungalow?.dailyPrice * selectedDates.length || 0)) * 0.2);
+                          const defaultDeposit = Math.round((useCustomPrice ? customPrice : (selectedBungalow?.dailyPrice * getNightsCount() || 0)) * 0.2);
                           setDepositAmount(defaultDeposit);
                         }}
                         className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
@@ -582,7 +919,7 @@ const CreateReservation = () => {
                       </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      Varsayılan kapora: %20 = ₺{Math.round((useCustomPrice ? customPrice : (selectedBungalow?.dailyPrice * selectedDates.length || 0)) * 0.2).toLocaleString()}
+                      Varsayılan kapora: %20 = ₺{Math.round((useCustomPrice ? customPrice : (selectedBungalow?.dailyPrice * getNightsCount() || 0)) * 0.2).toLocaleString()}
                     </p>
                   </div>
                 )}
@@ -594,7 +931,7 @@ const CreateReservation = () => {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                 <div className="text-center">
                   <p className="text-gray-500 mb-1">Toplam Gece</p>
-                  <p className="text-xl font-bold text-gray-900">{selectedDates.length}</p>
+                  <p className="text-xl font-bold text-gray-900">{getNightsCount()}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-gray-500 mb-1">
@@ -603,12 +940,12 @@ const CreateReservation = () => {
                   <p className="text-xl font-bold text-green-600">₺{reservationDetails.totalPrice.toLocaleString()}</p>
                   {useCustomPrice && (
                     <p className="text-xs text-gray-500 mt-1">
-                      (₺{Math.round(reservationDetails.totalPrice / selectedDates.length).toLocaleString()}/gece)
+                      (₺{Math.round(reservationDetails.totalPrice / getNightsCount()).toLocaleString()}/gece)
                     </p>
                   )}
                 </div>
                 <div className="text-center">
-                  <p className="text-gray-500 mb-1">Kapora</p>
+                  <p className="text-gray-500 mb-1">Önerilen Kapora</p>
                   <p className="text-lg font-semibold text-orange-600">₺{reservationDetails.depositAmount.toLocaleString()}</p>
                   <p className={`text-xs mt-1 ${depositReceived ? 'text-green-600' : 'text-red-600'}`}>
                     {depositReceived ? '✓ Alındı' : '✗ Alınmadı'}
@@ -620,11 +957,11 @@ const CreateReservation = () => {
                 </div>
               </div>
               
-              {selectedDates.length > 0 && (
+              {getNightsCount() > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-200 text-center">
                   <p className="text-sm text-gray-600">
-                    <span className="font-medium">Giriş:</span> {new Date(selectedDates.sort()[0]).toLocaleDateString('tr-TR')} - 
-                    <span className="font-medium ml-2">Çıkış:</span> {new Date(selectedDates.sort()[selectedDates.length - 1]).toLocaleDateString('tr-TR')}
+                    <span className="font-medium">Giriş:</span> {selectedDates.checkIn && formatDateTime(selectedDates.checkIn, '14:00')} - 
+                    <span className="font-medium ml-2">Çıkış:</span> {selectedDates.checkOut && formatDateTime(selectedDates.checkOut, '10:00')}
                   </p>
                 </div>
               )}
@@ -727,9 +1064,14 @@ const CreateReservation = () => {
               type="text"
               value={customerInfo.firstName}
               onChange={(e) => handleCustomerInfoChange('firstName', e.target.value)}
-              className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+              className={`w-full h-10 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent ${
+                validationErrors.firstName ? 'border-red-300' : 'border-gray-300'
+              }`}
               placeholder="Müşteri adını girin"
             />
+            {validationErrors.firstName && (
+              <p className="mt-1 text-sm text-red-600">{validationErrors.firstName}</p>
+            )}
           </div>
 
           <div>
@@ -740,9 +1082,14 @@ const CreateReservation = () => {
               type="text"
               value={customerInfo.lastName}
               onChange={(e) => handleCustomerInfoChange('lastName', e.target.value)}
-              className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+              className={`w-full h-10 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent ${
+                validationErrors.lastName ? 'border-red-300' : 'border-gray-300'
+              }`}
               placeholder="Müşteri soyadını girin"
             />
+            {validationErrors.lastName && (
+              <p className="mt-1 text-sm text-red-600">{validationErrors.lastName}</p>
+            )}
           </div>
 
           <div>
@@ -753,9 +1100,14 @@ const CreateReservation = () => {
               type="tel"
               value={customerInfo.phone}
               onChange={(e) => handleCustomerInfoChange('phone', e.target.value)}
-              className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-              placeholder="+90 555 123 45 67"
+              className={`w-full h-10 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent ${
+                validationErrors.phone ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="0555 555 55 55"
             />
+            {validationErrors.phone && (
+              <p className="mt-1 text-sm text-red-600">{validationErrors.phone}</p>
+            )}
           </div>
 
           <div>
@@ -766,9 +1118,14 @@ const CreateReservation = () => {
               type="email"
               value={customerInfo.email}
               onChange={(e) => handleCustomerInfoChange('email', e.target.value)}
-              className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+              className={`w-full h-10 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent ${
+                validationErrors.email ? 'border-red-300' : 'border-gray-300'
+              }`}
               placeholder="ornek@email.com"
             />
+            {validationErrors.email && (
+              <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
+            )}
           </div>
 
           {/* TC/Pasaport Seçimi */}
@@ -807,23 +1164,33 @@ const CreateReservation = () => {
                   type="text"
                   value={customerInfo.tcNumber}
                   onChange={(e) => handleCustomerInfoChange('tcNumber', e.target.value)}
-                  className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  className={`w-full h-10 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent ${
+                    validationErrors.tcNumber ? 'border-red-300' : 'border-gray-300'
+                  }`}
                   placeholder="12345678901"
                   maxLength="11"
                 />
+                {validationErrors.tcNumber && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.tcNumber}</p>
+                )}
               </div>
             ) : (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pasaport No
+                  Pasaport No *
                 </label>
                 <input
                   type="text"
                   value={customerInfo.passportNumber}
                   onChange={(e) => handleCustomerInfoChange('passportNumber', e.target.value)}
-                  className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  className={`w-full h-10 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent ${
+                    validationErrors.passportNumber ? 'border-red-300' : 'border-gray-300'
+                  }`}
                   placeholder="A1234567"
                 />
+                {validationErrors.passportNumber && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.passportNumber}</p>
+                )}
               </div>
             )}
           </div>
@@ -881,7 +1248,7 @@ const CreateReservation = () => {
           <div className="space-y-2 text-sm">
             <p><span className="font-medium">Bungalov:</span> {selectedBungalow?.name}</p>
             <p><span className="font-medium">Kapasite:</span> {selectedBungalow?.capacity} kişi</p>
-            <p><span className="font-medium">Gece Fiyatı:</span> ₺{selectedBungalow?.dailyPrice.toLocaleString()}</p>
+            <p><span className="font-medium">Gece Fiyatı:</span> {formatNightlyPrice(selectedBungalow?.dailyPrice)}</p>
           </div>
         </div>
 
@@ -889,9 +1256,9 @@ const CreateReservation = () => {
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <h4 className="font-medium text-gray-900 mb-4">Tarih Bilgileri</h4>
           <div className="space-y-2 text-sm">
-            <p><span className="font-medium">Giriş:</span> {selectedDates[0] && new Date(selectedDates[0]).toLocaleDateString('tr-TR')}</p>
-            <p><span className="font-medium">Çıkış:</span> {selectedDates[selectedDates.length - 1] && new Date(selectedDates[selectedDates.length - 1]).toLocaleDateString('tr-TR')}</p>
-            <p><span className="font-medium">Gece Sayısı:</span> {selectedDates.length}</p>
+            <p><span className="font-medium">Giriş:</span> {selectedDates.checkIn && formatDateTime(selectedDates.checkIn, '14:00')}</p>
+            <p><span className="font-medium">Çıkış:</span> {selectedDates.checkOut && formatDateTime(selectedDates.checkOut, '10:00')}</p>
+            <p><span className="font-medium">Gece Sayısı:</span> {getNightsCount()}</p>
           </div>
         </div>
 
@@ -977,9 +1344,15 @@ const CreateReservation = () => {
       case 1:
         return selectedBungalow !== null;
       case 2:
-        return selectedDates.length > 0;
+        return getNightsCount() > 0;
       case 3:
-        return customerInfo.firstName && customerInfo.lastName && customerInfo.email && customerInfo.phone && customerInfo.tcNumber;
+        const hasValidInfo = customerInfo.firstName && customerInfo.lastName && customerInfo.email && customerInfo.phone;
+        const hasValidId = customerInfo.isTurkishCitizen ? 
+          (customerInfo.tcNumber ? validateTC(customerInfo.tcNumber) : true) : 
+          (customerInfo.passportNumber ? validatePassport(customerInfo.passportNumber) : true);
+        const hasNoErrors = !validationErrors.firstName && !validationErrors.lastName && !validationErrors.email && !validationErrors.phone && 
+                           (!customerInfo.isTurkishCitizen ? !validationErrors.tcNumber : !validationErrors.passportNumber);
+        return hasValidInfo && hasValidId && hasNoErrors;
       case 4:
         return true;
       default:

@@ -10,7 +10,10 @@ import {
 import { reservations, getBungalowById } from '../data/data';
 
 const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) => {
-  const [selectedDates, setSelectedDates] = useState([]);
+  const [selectedDates, setSelectedDates] = useState({
+    checkIn: '',
+    checkOut: ''
+  });
   const [displayMonth, setDisplayMonth] = useState(new Date().getMonth());
   const [displayYear, setDisplayYear] = useState(new Date().getFullYear());
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +21,11 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
   const [customPrice, setCustomPrice] = useState(0);
 
   if (!isOpen || !reservation) return null;
+
+  // Güvenli değerler
+  const totalPrice = reservation.totalPrice || 0;
+  const paidAmount = reservation.paidAmount || 0;
+  const remainingAmount = reservation.remainingAmount || 0;
 
   // Mevcut tarihleri hesapla
   const currentCheckIn = new Date(reservation.checkInDate);
@@ -39,20 +47,18 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
 
   // Gerçek müsaitlik kontrolü
   const isDateAvailable = (date) => {
-    
     // Bu tarihte rezervasyon var mı kontrol et (mevcut rezervasyon hariç)
     return !reservations.some(res => {
       if (res.id === reservation.id) return false; // Mevcut rezervasyonu hariç tut
       const checkIn = new Date(res.checkInDate);
       const checkOut = new Date(res.checkOutDate);
+      
+      // Çıkış günü aynı gün giriş yapılabilir
+      // Sadece giriş gününden çıkış gününe kadar (çıkış günü hariç) dolu
       return date >= checkIn && date < checkOut && res.bungalowId === reservation.bungalowId;
     });
   };
 
-  const isDateSelected = (date) => {
-    const dateStr = formatDate(date);
-    return selectedDates.includes(dateStr);
-  };
 
   const navigateMonth = (direction) => {
     if (direction === 'prev') {
@@ -73,31 +79,49 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
   };
 
   const handleDateClick = (date) => {
-    if (!isDateAvailable(date)) return;
-
     const dateStr = formatDate(date);
     
-    if (selectedDates.includes(dateStr)) {
-      // Tarihi kaldır
-      setSelectedDates(selectedDates.filter(d => d !== dateStr));
-    } else {
-      // Tarihi ekle - sadece müsait tarihleri ekle
-      if (isDateAvailable(date)) {
-        setSelectedDates([...selectedDates, dateStr]);
+    if (!isDateAvailable(date)) {
+      return; // Müsait olmayan tarihleri seçme
+    }
+
+    if (!selectedDates.checkIn) {
+      // İlk tarih seçimi - check-in
+      setSelectedDates({
+        checkIn: dateStr,
+        checkOut: ''
+      });
+    } else if (!selectedDates.checkOut) {
+      // İkinci tarih seçimi - check-out
+      if (new Date(dateStr) > new Date(selectedDates.checkIn)) {
+        setSelectedDates(prev => ({
+          ...prev,
+          checkOut: dateStr
+        }));
+      } else {
+        // Eğer seçilen tarih check-in'den önceyse, yeni check-in yap
+        setSelectedDates({
+          checkIn: dateStr,
+          checkOut: ''
+        });
       }
+    } else {
+      // Yeni tarih seçimi - mevcut seçimi temizle
+      setSelectedDates({
+        checkIn: dateStr,
+        checkOut: ''
+      });
     }
   };
 
   const handlePostpone = async () => {
-    if (selectedDates.length === 0) {
-      toast.error('Lütfen en az bir tarih seçin!');
+    if (!selectedDates.checkIn || !selectedDates.checkOut) {
+      toast.error('Lütfen giriş ve çıkış tarihlerini seçin!');
       return;
     }
 
-    // Tarihleri sırala
-    const sortedDates = selectedDates.sort();
-    const newCheckIn = sortedDates[0];
-    const newCheckOut = sortedDates[sortedDates.length - 1];
+    const newCheckIn = selectedDates.checkIn;
+    const newCheckOut = selectedDates.checkOut;
 
     setIsLoading(true);
     const postponeToast = toast.loading('Rezervasyon güncelleniyor...');
@@ -108,9 +132,8 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
       
       onPostpone({
         reservationId: reservation.id,
-        newCheckIn: newCheckIn,
-        newCheckOut: newCheckOut,
-        selectedDates: sortedDates,
+        newCheckInDate: newCheckIn,
+        newCheckOutDate: newCheckOut,
         newTotalPrice: newTotalPrice,
         priceDifference: priceDifference,
         useCustomPrice: useCustomPrice
@@ -135,28 +158,30 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
   const firstDay = getFirstDayOfMonth(displayYear, displayMonth);
   const today = new Date();
 
-  const newNights = selectedDates.length > 0 ? selectedDates.length : currentNights;
+  const newNights = selectedDates.checkIn && selectedDates.checkOut ? 
+    Math.ceil((new Date(selectedDates.checkOut) - new Date(selectedDates.checkIn)) / (1000 * 60 * 60 * 24)) : 
+    currentNights;
 
   // Fiyat hesaplama
   const calculateNewPrice = () => {
-    if (selectedDates.length === 0) return reservation.totalPrice;
+    if (!selectedDates.checkIn || !selectedDates.checkOut) return totalPrice;
     
     const bungalow = getBungalowById(reservation.bungalowId);
-    if (!bungalow) return reservation.totalPrice;
+    if (!bungalow) return totalPrice;
     
     // Günlük fiyat * gece sayısı
-    const basePrice = bungalow.dailyPrice * selectedDates.length;
+    const basePrice = (bungalow.dailyPrice || 0) * newNights;
     
     // KDV hesaplama (%18)
     const vatRate = 0.18;
     const vatAmount = basePrice * vatRate;
-    const totalPrice = basePrice + vatAmount;
+    const newTotalPrice = basePrice + vatAmount;
     
-    return Math.round(totalPrice);
+    return Math.round(newTotalPrice);
   };
 
   const newTotalPrice = useCustomPrice ? customPrice : calculateNewPrice();
-  const priceDifference = newTotalPrice - reservation.totalPrice;
+  const priceDifference = newTotalPrice - totalPrice;
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -185,23 +210,23 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Seçilen Tarihler</h4>
                 <div className="space-y-2">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700">Seçilen Tarih Sayısı</label>
+                    <label className="block text-xs font-medium text-gray-700">Seçilen Gece Sayısı</label>
                     <div className="text-sm text-gray-900 font-medium">
-                      {selectedDates.length} gün
+                      {newNights} gece
                     </div>
                   </div>
-                  {selectedDates.length > 0 && (
+                  {selectedDates.checkIn && selectedDates.checkOut && (
                     <>
                       <div>
                         <label className="block text-xs font-medium text-gray-700">Giriş Tarihi</label>
                         <div className="text-sm text-gray-900 font-medium">
-                          {new Date(selectedDates.sort()[0]).toLocaleDateString('tr-TR')}
+                          {new Date(selectedDates.checkIn).toLocaleDateString('tr-TR')}
                         </div>
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700">Çıkış Tarihi</label>
                         <div className="text-sm text-gray-900 font-medium">
-                          {new Date(selectedDates.sort()[selectedDates.length - 1]).toLocaleDateString('tr-TR')}
+                          {new Date(selectedDates.checkOut).toLocaleDateString('tr-TR')}
                         </div>
                       </div>
                     </>
@@ -222,21 +247,21 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Mevcut Tutar:</span>
-                    <span className="text-gray-900">₺{reservation.totalPrice.toLocaleString()}</span>
+                    <span className="text-gray-900">₺{totalPrice.toLocaleString('tr-TR')}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Önceden Alınan:</span>
-                    <span className="text-gray-900">₺{reservation.paidAmount.toLocaleString()}</span>
+                    <span className="text-gray-900">₺{paidAmount.toLocaleString('tr-TR')}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Kalan Ödeme:</span>
-                    <span className="text-gray-900">₺{reservation.remainingAmount.toLocaleString()}</span>
+                    <span className="text-gray-900">₺{remainingAmount.toLocaleString('tr-TR')}</span>
                   </div>
                 </div>
               </div>
 
               {/* Yeni Fiyat Bilgileri */}
-              {selectedDates.length > 0 && (
+              {selectedDates.checkIn && selectedDates.checkOut && (
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <h4 className="text-sm font-medium text-blue-900 mb-3">Yeni Fiyat Bilgileri</h4>
                   <div className="space-y-2">
@@ -246,18 +271,18 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-blue-700">Yeni Tutar:</span>
-                      <span className="text-blue-900 font-medium">₺{newTotalPrice.toLocaleString()}</span>
+                      <span className="text-blue-900 font-medium">₺{newTotalPrice.toLocaleString('tr-TR')}</span>
                     </div>
                     <div className="flex justify-between text-sm border-t pt-2">
                       <span className="text-blue-700">Fiyat Farkı:</span>
                       <span className={`font-medium ${priceDifference > 0 ? 'text-red-600' : priceDifference < 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                        {priceDifference > 0 ? '+' : ''}₺{priceDifference.toLocaleString()}
+                        {priceDifference > 0 ? '+' : ''}₺{priceDifference.toLocaleString('tr-TR')}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-blue-700">Yeni Kalan Ödeme:</span>
-                      <span className={`font-medium ${(newTotalPrice - reservation.paidAmount) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        ₺{(newTotalPrice - reservation.paidAmount).toLocaleString()}
+                      <span className={`font-medium ${(newTotalPrice - paidAmount) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        ₺{(newTotalPrice - paidAmount).toLocaleString('tr-TR')}
                       </span>
                     </div>
                   </div>
@@ -315,9 +340,14 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
                       const day = i + 1;
                       const date = new Date(displayYear, displayMonth, day);
                       const isAvailable = isDateAvailable(date);
-                      const isSelected = isDateSelected(date);
                       const isToday = date.toDateString() === today.toDateString();
                       const isPast = date < today;
+                      
+                      // Tarih aralığındaki günleri kontrol et
+                      const isInRange = selectedDates.checkIn && selectedDates.checkOut && 
+                        date > new Date(selectedDates.checkIn) && date < new Date(selectedDates.checkOut);
+                      const isCheckIn = selectedDates.checkIn === formatDate(date);
+                      const isCheckOut = selectedDates.checkOut === formatDate(date);
 
                       return (
                         <button
@@ -329,8 +359,10 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
                               ? 'text-gray-300 cursor-not-allowed bg-gray-50'
                               : !isAvailable
                               ? 'bg-red-50 text-red-500 cursor-not-allowed border border-red-200'
-                              : isSelected
-                              ? 'bg-gray-900 text-white shadow-lg transform scale-105'
+                              : isCheckIn || isCheckOut
+                              ? 'bg-gray-900 text-white shadow-lg transform scale-105 border-2 border-gray-700'
+                              : isInRange
+                              ? 'bg-blue-200 text-blue-800 border border-blue-300 shadow-md'
                               : isToday
                               ? 'bg-blue-100 text-blue-700 border-2 border-blue-300 hover:bg-blue-200 hover:scale-105'
                               : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 hover:scale-105 hover:shadow-md'
@@ -367,7 +399,7 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
               </div>
 
               {/* Manuel Fiyat Seçeneği */}
-              {selectedDates.length > 0 && (
+              {selectedDates.checkIn && selectedDates.checkOut && (
                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl shadow-sm p-6 mt-6">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-semibold text-gray-900">Fiyat Ayarları</h4>
@@ -418,7 +450,7 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
                         </button>
                       </div>
                       <p className="text-xs text-gray-500 mt-2">
-                        Otomatik hesaplanan fiyat: ₺{calculateNewPrice().toLocaleString()}
+                        Otomatik hesaplanan fiyat: ₺{calculateNewPrice().toLocaleString('tr-TR')}
                       </p>
                     </div>
                   )}
@@ -428,7 +460,7 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-gray-700">Otomatik Hesaplanan Fiyat</p>
-                          <p className="text-lg font-bold text-gray-900">₺{calculateNewPrice().toLocaleString()}</p>
+                          <p className="text-lg font-bold text-gray-900">₺{calculateNewPrice().toLocaleString('tr-TR')}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-xs text-gray-500">Günlük fiyat × {newNights} gece</p>
@@ -452,7 +484,7 @@ const PostponeReservationModal = ({ isOpen, onClose, reservation, onPostpone }) 
             </button>
             <button
               onClick={handlePostpone}
-              disabled={isLoading || selectedDates.length === 0}
+              disabled={isLoading || !selectedDates.checkIn || !selectedDates.checkOut}
               className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (

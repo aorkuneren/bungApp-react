@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
   ArrowLeftIcon,
   UserIcon, 
@@ -8,11 +8,13 @@ import {
   CheckIcon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
-import { customers, CUSTOMER_STATUS, getCustomerStatusBadge } from '../data/data';
+import { customers, CUSTOMER_STATUS, getCustomerStatusBadge, customerService } from '../data/data';
+import toast from 'react-hot-toast';
 
 const CustomerEditPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [customer, setCustomer] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -52,24 +54,51 @@ const CustomerEditPage = () => {
     setIsLoading(true);
 
     try {
-      // Burada gerçek uygulamada API çağrısı yapılacak
-      console.log('Müşteri güncelleniyor:', formData);
+      // Local Storage'a müşteri güncelle
+      const updatedCustomer = customerService.update(parseInt(id), formData);
       
-      // Simüle edilmiş API çağrısı
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      alert('Müşteri başarıyla güncellendi!');
-      navigate(`/customers/${id}`);
+      if (updatedCustomer) {
+        console.log('Müşteri güncellendi:', updatedCustomer);
+        toast.success('Müşteri başarıyla güncellendi!');
+        
+        // Form verilerini güncelle
+        setCustomer(updatedCustomer);
+        setFormData({
+          firstName: updatedCustomer.firstName,
+          lastName: updatedCustomer.lastName,
+          email: updatedCustomer.email,
+          phone: updatedCustomer.phone,
+          tcNumber: updatedCustomer.tcNumber,
+          status: updatedCustomer.status
+        });
+      } else {
+        throw new Error('Müşteri bulunamadı');
+      }
     } catch (error) {
       console.error('Güncelleme hatası:', error);
-      alert('Güncelleme sırasında bir hata oluştu!');
+      toast.error('Güncelleme sırasında bir hata oluştu!');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCancel = () => {
-    navigate(`/customers/${id}`);
+    // Eğer state'de from var ise oraya, yoksa müşteriler listesine dön
+    if (location.state?.from) {
+      navigate(location.state.from, { replace: true });
+      // Önceki sayfayı yenile ve scroll top yap
+      setTimeout(() => {
+        window.location.reload();
+        window.scrollTo(0, 0);
+      }, 100);
+    } else {
+      navigate(-1); // Bir önceki sayfaya dön
+      // Önceki sayfayı yenile ve scroll top yap
+      setTimeout(() => {
+        window.location.reload();
+        window.scrollTo(0, 0);
+      }, 100);
+    }
   };
 
   if (!customer) {
@@ -91,7 +120,7 @@ const CustomerEditPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate(`/customers/${id}`)}
+                onClick={handleCancel}
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <ArrowLeftIcon className="w-5 h-5" />

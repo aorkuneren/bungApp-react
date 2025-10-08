@@ -5,23 +5,35 @@ import {
   CheckIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
-import { BadgeTurkishLiraIcon } from './ui/icons/lucide-badge-turkish-lira';
+import toast from 'react-hot-toast';
 
 const ChangePriceModal = ({ isOpen, onClose, reservation, onChangePrice }) => {
-  const [newPrice, setNewPrice] = useState(reservation?.totalPrice || 0);
+  const [newPrice, setNewPrice] = useState(0);
   const [priceChangeReason, setPriceChangeReason] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Güvenli değerler
+  const totalPrice = reservation?.totalPrice || 0;
+  const paidAmount = reservation?.paidAmount || 0;
+  const remainingAmount = reservation?.remainingAmount || 0;
+
+  // Modal açıldığında newPrice'ı güncelle
+  React.useEffect(() => {
+    if (isOpen && reservation) {
+      setNewPrice(totalPrice);
+    }
+  }, [isOpen, reservation, totalPrice]);
 
   if (!isOpen || !reservation) return null;
 
   const handleChangePrice = async () => {
     if (newPrice <= 0) {
-      alert('Lütfen geçerli bir tutar girin!');
+      toast.error('Lütfen geçerli bir tutar girin!');
       return;
     }
 
     if (!priceChangeReason.trim()) {
-      alert('Lütfen fiyat değişikliği sebebini belirtin!');
+      toast.error('Lütfen fiyat değişikliği sebebini belirtin!');
       return;
     }
 
@@ -32,21 +44,21 @@ const ChangePriceModal = ({ isOpen, onClose, reservation, onChangePrice }) => {
       
       onChangePrice({
         reservationId: reservation.id,
-        newPrice: newPrice,
+        newTotalPrice: newPrice,
         reason: priceChangeReason
       });
       
       onClose();
     } catch (error) {
       console.error('Fiyat değişikliği hatası:', error);
-      alert('Fiyat değişikliği sırasında bir hata oluştu!');
+      toast.error('Fiyat değişikliği sırasında bir hata oluştu!');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const priceDifference = newPrice - reservation.totalPrice;
-  const newRemainingAmount = newPrice - reservation.paidAmount;
+  const priceDifference = (newPrice || 0) - (totalPrice || 0);
+  const newRemainingAmount = (newPrice || 0) - (paidAmount || 0);
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -79,15 +91,15 @@ const ChangePriceModal = ({ isOpen, onClose, reservation, onChangePrice }) => {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Mevcut Toplam Tutar:</span>
-                <span className="font-medium text-gray-900">₺{reservation.totalPrice.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">₺{totalPrice.toLocaleString('tr-TR')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Ödenen Tutar:</span>
-                <span className="font-medium text-gray-900">₺{reservation.paidAmount.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">₺{paidAmount.toLocaleString('tr-TR')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Kalan Ödeme:</span>
-                <span className="font-medium text-gray-900">₺{reservation.remainingAmount.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">₺{remainingAmount.toLocaleString('tr-TR')}</span>
               </div>
             </div>
           </div>
@@ -95,23 +107,19 @@ const ChangePriceModal = ({ isOpen, onClose, reservation, onChangePrice }) => {
           {/* Yeni Fiyat */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Yeni Toplam Tutar *
+              Yeni Toplam Tutar (₺) *
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <BadgeTurkishLiraIcon className="w-5 h-5 text-gray-400" />
-              </div>
-              <input
-                type="number"
-                value={newPrice}
-                onChange={(e) => setNewPrice(parseFloat(e.target.value) || 0)}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                placeholder="0"
-                min="0"
-                step="0.01"
-                required
-              />
-            </div>
+            <input
+              type="text"
+              value={newPrice === 0 ? '' : (newPrice || 0).toLocaleString('tr-TR')}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^\d]/g, '');
+                setNewPrice(parseInt(value) || 0);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+              placeholder="0"
+              required
+            />
           </div>
 
           {/* Fiyat Değişikliği Sebebi */}
@@ -135,22 +143,22 @@ const ChangePriceModal = ({ isOpen, onClose, reservation, onChangePrice }) => {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-blue-700">Yeni Toplam Tutar:</span>
-                <span className="font-medium text-blue-900">₺{newPrice.toLocaleString()}</span>
+                <span className="font-medium text-blue-900">₺{(newPrice || 0).toLocaleString('tr-TR')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-blue-700">Ödenen Tutar:</span>
-                <span className="font-medium text-blue-900">₺{reservation.paidAmount.toLocaleString()}</span>
+                <span className="font-medium text-blue-900">₺{paidAmount.toLocaleString('tr-TR')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-blue-700">Yeni Kalan Ödeme:</span>
                 <span className={`font-medium ${newRemainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  ₺{newRemainingAmount.toLocaleString()}
+                  ₺{(newRemainingAmount || 0).toLocaleString('tr-TR')}
                 </span>
               </div>
               <div className="flex justify-between border-t pt-2">
                 <span className="text-blue-700">Fiyat Farkı:</span>
                 <span className={`font-medium ${priceDifference > 0 ? 'text-red-600' : priceDifference < 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                  {priceDifference > 0 ? '+' : ''}₺{priceDifference.toLocaleString()}
+                  {priceDifference > 0 ? '+' : ''}₺{(priceDifference || 0).toLocaleString('tr-TR')}
                 </span>
               </div>
             </div>

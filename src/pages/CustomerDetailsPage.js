@@ -9,13 +9,12 @@ import {
   BuildingOfficeIcon,
   PencilIcon,
   ExclamationTriangleIcon,
-  MapPinIcon,
   CreditCardIcon,
   NoSymbolIcon,
   EyeIcon
 } from '@heroicons/react/24/outline';
 import { BadgeTurkishLiraIcon } from '../components/ui/icons/lucide-badge-turkish-lira';
-import { customers, getReservationsByCustomerId, formatDate, formatPrice, getCustomerStatusBadge } from '../data/data';
+import { getReservationsByCustomerId, formatDate, formatPrice, getCustomerStatusBadge, customerService } from '../data/data';
 
 // Tooltip component
 const Tooltip = ({ content, children }) => {
@@ -40,7 +39,7 @@ const CustomerDetailsPage = () => {
 
   useEffect(() => {
     // Müşteri bilgilerini getir
-    const foundCustomer = customers.find(c => c.id === parseInt(id));
+    const foundCustomer = customerService.getById(id);
     if (foundCustomer) {
       setCustomer(foundCustomer);
       // Müşteri rezervasyonlarını getir
@@ -161,7 +160,7 @@ const CustomerDetailsPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate('/customers')}
+                onClick={() => navigate(-1)}
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <ArrowLeftIcon className="w-5 h-5" />
@@ -224,10 +223,12 @@ const CustomerDetailsPage = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Adres</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {customer.isTurkish ? 'TC Kimlik No' : 'Pasaport No'}
+                  </label>
                   <div className="flex items-center text-sm text-gray-900 bg-gray-50 p-2 rounded border">
-                    <MapPinIcon className="w-4 h-4 text-gray-400 mr-2" />
-                    Antalya, Türkiye
+                    <UserIcon className="w-4 h-4 text-gray-400 mr-2" />
+                    {customer.isTurkish ? customer.tcNumber : customer.passportNumber}
                   </div>
                 </div>
                 
@@ -235,7 +236,7 @@ const CustomerDetailsPage = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Kayıt Tarihi</label>
                   <div className="flex items-center text-sm text-gray-900 bg-gray-50 p-2 rounded border">
                     <CalendarIcon className="w-4 h-4 text-gray-400 mr-2" />
-                    03 Eki 2025
+                    {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('tr-TR') : 'Bilinmiyor'}
                   </div>
                 </div>
               </div>

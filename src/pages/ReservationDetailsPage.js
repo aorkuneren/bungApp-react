@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { 
   ArrowLeftIcon,
   CalendarIcon,
@@ -10,7 +11,11 @@ import {
   XMarkIcon,
   ExclamationTriangleIcon,
   CurrencyDollarIcon,
-  PencilIcon
+  PencilIcon,
+  LinkIcon,
+  EnvelopeIcon,
+  ChatBubbleLeftRightIcon,
+  ClipboardDocumentIcon
 } from '@heroicons/react/24/outline';
 import { 
   getReservationById, 
@@ -20,7 +25,9 @@ import {
   formatPrice, 
   RESERVATION_STATUS,
   getReservationStatusBadge,
-  getPaymentStatusBadge
+  getPaymentStatusBadge,
+  reservationService,
+  getSettings
 } from '../data/data';
 import PostponeReservationModal from '../components/PostponeReservationModal';
 import CancelReservationModal from '../components/CancelReservationModal';
@@ -41,6 +48,98 @@ const ReservationDetailsPage = () => {
   const [showChangePriceModal, setShowChangePriceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
+  // Onay linki fonksiyonları
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Link panoya kopyalandı!');
+    }).catch(() => {
+      toast.error('Kopyalama başarısız!');
+    });
+  };
+
+  const openWhatsApp = () => {
+    if (!reservation?.confirmationLink || !customer?.phone) {
+      toast.error('WhatsApp bilgileri eksik!');
+      return;
+    }
+
+    const settings = getSettings();
+    const phone = customer.phone.replace(/[^\d]/g, '');
+    
+    // WhatsApp şablonunu kullan
+    let message = settings.whatsappIntegration?.confirmationMessage || `Merhaba ${customer.firstName} ${customer.lastName},
+
+Rezervasyonunuz için onay linki:
+
+{confirmationLink}
+
+Bu link 24 saat geçerlidir. Lütfen kapora ödemesini yaparak rezervasyonunuzu onaylayın.
+
+İyi günler!`;
+
+    // Şablon değişkenlerini değiştir
+    message = message
+      .replace(/{customerName}/g, `${customer.firstName} ${customer.lastName}`)
+      .replace(/{reservationCode}/g, reservation.code || reservation.reservationCode)
+      .replace(/{bungalowName}/g, bungalow?.name || 'Bilinmiyor')
+      .replace(/{checkInDate}/g, formatDate(reservation.checkInDate))
+      .replace(/{checkOutDate}/g, formatDate(reservation.checkOutDate))
+      .replace(/{totalPrice}/g, formatPrice(reservation.totalPrice))
+      .replace(/{depositAmount}/g, formatPrice(reservation.depositAmount))
+      .replace(/{confirmationLink}/g, reservation.confirmationLink);
+
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  const sendEmail = () => {
+    if (!reservation?.confirmationLink || !customer?.email) {
+      toast.error('E-posta bilgileri eksik!');
+      return;
+    }
+
+    const settings = getSettings();
+    
+    // E-posta şablonunu kullan
+    let subject = settings.emailTemplates?.reservationConfirmation?.subject || `Rezervasyon Onay Linki - {reservationCode}`;
+    let body = settings.emailTemplates?.reservationConfirmation?.template || `Merhaba {customerName},
+
+Rezervasyonunuz için onay linki:
+
+{confirmationLink}
+
+Bu link 24 saat geçerlidir. Lütfen kapora ödemesini yaparak rezervasyonunuzu onaylayın.
+
+Rezervasyon Detayları:
+- Bungalov: {bungalowName}
+- Giriş: {checkInDate}
+- Çıkış: {checkOutDate}
+- Toplam Tutar: {totalPrice}
+- Kapora: {depositAmount}
+
+İyi günler!`;
+
+    // Şablon değişkenlerini değiştir
+    const replacements = {
+      '{customerName}': `${customer.firstName} ${customer.lastName}`,
+      '{reservationCode}': reservation.code || reservation.reservationCode,
+      '{bungalowName}': bungalow?.name || 'Bilinmiyor',
+      '{checkInDate}': formatDate(reservation.checkInDate),
+      '{checkOutDate}': formatDate(reservation.checkOutDate),
+      '{totalPrice}': formatPrice(reservation.totalPrice),
+      '{depositAmount}': formatPrice(reservation.depositAmount),
+      '{confirmationLink}': reservation.confirmationLink
+    };
+
+    Object.entries(replacements).forEach(([key, value]) => {
+      subject = subject.replace(new RegExp(key, 'g'), value);
+      body = body.replace(new RegExp(key, 'g'), value);
+    });
+
+    const mailtoUrl = `mailto:${customer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoUrl;
+  };
+
   useEffect(() => {
     // Rezervasyon bilgilerini getir
     const foundReservation = getReservationById(parseInt(id));
@@ -60,19 +159,18 @@ const ReservationDetailsPage = () => {
   const handleStatusChange = async (newStatus) => {
     setIsLoading(true);
     try {
-      // Simüle edilmiş API çağrısı
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Rezervasyon durumu değiştiriliyor:', {
-        reservationId: reservation.id,
-        newStatus: newStatus
+      // Rezervasyon durumunu güncelle
+      const updatedReservation = reservationService.update(reservation.id, {
+        ...reservation,
+        status: newStatus,
+        updatedAt: new Date().toISOString()
       });
       
-      alert(`Rezervasyon durumu "${newStatus}" olarak güncellendi!`);
-      // Burada gerçek uygulamada API çağrısı yapılacak
+      setReservation(updatedReservation);
+      toast.success(`Rezervasyon durumu "${newStatus}" olarak güncellendi!`);
     } catch (error) {
       console.error('Durum değişikliği hatası:', error);
-      alert('Durum değişikliği sırasında bir hata oluştu!');
+      toast.error('Durum değişikliği sırasında bir hata oluştu!');
     } finally {
       setIsLoading(false);
     }
@@ -87,9 +185,37 @@ const ReservationDetailsPage = () => {
   };
 
   const handlePostpone = (data) => {
-    console.log('Rezervasyon ertelendi:', data);
-    alert('Rezervasyon başarıyla ertelendi!');
-    // Burada gerçek uygulamada API çağrısı yapılacak
+    try {
+      // Yeni gece sayısını hesapla
+      const newNights = Math.ceil((new Date(data.newCheckOutDate) - new Date(data.newCheckInDate)) / (1000 * 60 * 60 * 24));
+      
+      // Yeni fiyat bilgilerini hesapla
+      const bungalow = getBungalowById(reservation.bungalowId);
+      let newTotalPrice = reservation.totalPrice;
+      let newRemainingAmount = reservation.remainingAmount;
+      
+      if (bungalow && data.newTotalPrice) {
+        newTotalPrice = data.newTotalPrice;
+        newRemainingAmount = newTotalPrice - (reservation.paidAmount || 0);
+      }
+      
+      const updatedReservation = reservationService.update(reservation.id, {
+        ...reservation,
+        checkInDate: data.newCheckInDate,
+        checkOutDate: data.newCheckOutDate,
+        nights: newNights,
+        totalPrice: newTotalPrice,
+        remainingAmount: newRemainingAmount,
+        updatedAt: new Date().toISOString()
+      });
+      
+      setReservation(updatedReservation);
+      setShowPostponeModal(false);
+      toast.success('Rezervasyon başarıyla ertelendi!');
+    } catch (error) {
+      console.error('Erteleme hatası:', error);
+      toast.error('Rezervasyon ertelenirken bir hata oluştu!');
+    }
   };
 
   const handleCancelReservation = () => {
@@ -97,9 +223,21 @@ const ReservationDetailsPage = () => {
   };
 
   const handleCancel = (data) => {
-    console.log('Rezervasyon iptal edildi:', data);
-    alert('Rezervasyon başarıyla iptal edildi!');
-    // Burada gerçek uygulamada API çağrısı yapılacak
+    try {
+      const updatedReservation = reservationService.update(reservation.id, {
+        ...reservation,
+        status: 'İptal Edildi',
+        cancelReason: data.reason,
+        updatedAt: new Date().toISOString()
+      });
+      
+      setReservation(updatedReservation);
+      setShowCancelModal(false);
+      toast.success('Rezervasyon başarıyla iptal edildi!');
+    } catch (error) {
+      console.error('İptal hatası:', error);
+      toast.error('Rezervasyon iptal edilirken bir hata oluştu!');
+    }
   };
 
   const handleChangePrice = () => {
@@ -107,9 +245,21 @@ const ReservationDetailsPage = () => {
   };
 
   const handlePriceChange = (data) => {
-    console.log('Fiyat değiştirildi:', data);
-    alert('Fiyat başarıyla güncellendi!');
-    // Burada gerçek uygulamada API çağrısı yapılacak
+    try {
+      const updatedReservation = reservationService.update(reservation.id, {
+        ...reservation,
+        totalPrice: data.newTotalPrice,
+        remainingAmount: data.newTotalPrice - (reservation.paidAmount || 0),
+        updatedAt: new Date().toISOString()
+      });
+      
+      setReservation(updatedReservation);
+      setShowChangePriceModal(false);
+      toast.success('Fiyat başarıyla güncellendi!');
+    } catch (error) {
+      console.error('Fiyat değişikliği hatası:', error);
+      toast.error('Fiyat güncellenirken bir hata oluştu!');
+    }
   };
 
   const handleTakePayment = () => {
@@ -117,9 +267,25 @@ const ReservationDetailsPage = () => {
   };
 
   const handlePayment = (data) => {
-    console.log('Ödeme alındı:', data);
-    alert('Ödeme başarıyla kaydedildi!');
-    // Burada gerçek uygulamada API çağrısı yapılacak
+    try {
+      const newPaidAmount = (reservation.paidAmount || 0) + data.amount;
+      const newRemainingAmount = reservation.totalPrice - newPaidAmount;
+      
+      const updatedReservation = reservationService.update(reservation.id, {
+        ...reservation,
+        paidAmount: newPaidAmount,
+        remainingAmount: newRemainingAmount,
+        paymentStatus: newRemainingAmount <= 0 ? 'Ödendi' : 'Kısmı Ödendi',
+        updatedAt: new Date().toISOString()
+      });
+      
+      setReservation(updatedReservation);
+      setShowPaymentModal(false);
+      toast.success('Ödeme başarıyla kaydedildi!');
+    } catch (error) {
+      console.error('Ödeme hatası:', error);
+      toast.error('Ödeme kaydedilirken bir hata oluştu!');
+    }
   };
 
 
@@ -136,6 +302,12 @@ const ReservationDetailsPage = () => {
 
   // Gece sayısını hesapla
   const nights = Math.ceil((new Date(reservation.checkOutDate) - new Date(reservation.checkInDate)) / (1000 * 60 * 60 * 24));
+  
+  // Güvenli değerler
+  const bungalowPrice = reservation.bungalowPrice || 0;
+  const totalPrice = reservation.totalPrice || 0;
+  const paidAmount = reservation.paidAmount || 0;
+  const remainingAmount = reservation.remainingAmount || 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -145,7 +317,7 @@ const ReservationDetailsPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate('/reservations')}
+                onClick={() => navigate(-1)}
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <ArrowLeftIcon className="w-5 h-5" />
@@ -276,6 +448,79 @@ const ReservationDetailsPage = () => {
               </div>
             </div>
           </div>
+
+          {/* Onay Linki Bölümü - Sadece Bekleyen rezervasyonlar için */}
+          {reservation.status === RESERVATION_STATUS.PENDING && reservation.confirmationLink && (
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <LinkIcon className="w-4 h-4 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900">Onay Linki</h2>
+                  <p className="text-sm text-gray-600">Müşteriye gönderilecek onay linki</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Onay Linki */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Onay Linki
+                  </label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={reservation.confirmationLink}
+                      readOnly
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm font-mono"
+                    />
+                    <button
+                      onClick={() => copyToClipboard(reservation.confirmationLink)}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 h-9 px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      title="Kopyala"
+                    >
+                      <ClipboardDocumentIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Süre Bilgisi */}
+                {reservation.confirmationExpiresAt && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2">
+                      <ClockIcon className="w-5 h-5 text-yellow-600" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-800">Onay Süresi</p>
+                        <p className="text-sm text-yellow-700">
+                          Bu link {new Date(reservation.confirmationExpiresAt).toLocaleString('tr-TR')} tarihine kadar geçerlidir.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Gönderim Butonları */}
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={openWhatsApp}
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 h-9 px-4 py-2 bg-green-600 text-white hover:bg-green-700"
+                  >
+                    <ChatBubbleLeftRightIcon className="w-4 h-4" />
+                    <span>WhatsApp ile Gönder</span>
+                  </button>
+                  
+                  <button
+                    onClick={sendEmail}
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 h-9 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    <EnvelopeIcon className="w-4 h-4" />
+                    <span>E-posta ile Gönder</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 2. Satır: Durum İşlemleri - Fiyat ve Ödeme Detayları */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -418,28 +663,28 @@ const ReservationDetailsPage = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Temel fiyat ({nights} gece) (KDV Dahil)</span>
-                  <span className="text-sm text-gray-900">{formatPrice(reservation.bungalowPrice * nights)}</span>
+                  <span className="text-sm text-gray-900">{formatPrice(bungalowPrice * nights)}</span>
                 </div>
                 
                 <div className="flex justify-between items-center border-t pt-4">
                   <span className="text-sm font-medium text-gray-900">Toplam Tutar</span>
-                  <span className="text-lg font-bold text-gray-900">{formatPrice(reservation.totalPrice)}</span>
+                  <span className="text-lg font-bold text-gray-900">{formatPrice(totalPrice)}</span>
                 </div>
                 
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Alınan Kapora</span>
-                  <span className="text-sm text-gray-900 font-medium">{formatPrice(reservation.paidAmount)}</span>
+                  <span className="text-sm text-gray-900 font-medium">{formatPrice(paidAmount)}</span>
                 </div>
                 
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Kalan Ödeme</span>
-                  <span className={`text-sm font-medium ${reservation.remainingAmount > 0 ? 'text-gray-900' : 'text-gray-500'}`}>
-                    {formatPrice(reservation.remainingAmount)}
+                  <span className={`text-sm font-medium ${remainingAmount > 0 ? 'text-gray-900' : 'text-gray-500'}`}>
+                    {formatPrice(remainingAmount)}
                   </span>
                 </div>
               </div>
               
-              {reservation.remainingAmount > 0 ? (
+              {remainingAmount > 0 ? (
                 <div className="mt-6">
                   <button
                     onClick={handleTakePayment}

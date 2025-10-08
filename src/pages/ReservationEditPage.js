@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
   ArrowLeftIcon,
   UserIcon,
@@ -13,12 +13,16 @@ import {
   getBungalowById, 
   getCustomerById,
   formatDate, 
-  formatPrice
+  formatPrice,
+  reservationService,
+  customerService
 } from '../data/data';
+import toast from 'react-hot-toast';
 
 const ReservationEditPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [reservation, setReservation] = useState(null);
   const [bungalow, setBungalow] = useState(null);
   const [customer, setCustomer] = useState(null);
@@ -30,7 +34,9 @@ const ReservationEditPage = () => {
     email: '',
     phone: '',
     guestCount: 1,
-    notes: ''
+    notes: '',
+    status: 'Bekleyen',
+    paymentStatus: 'Ödenmedi'
   });
 
   useEffect(() => {
@@ -54,7 +60,9 @@ const ReservationEditPage = () => {
         email: foundCustomer.email,
         phone: foundCustomer.phone,
         guestCount: foundReservation.guestCount,
-        notes: foundReservation.notes || ''
+        notes: foundReservation.notes || '',
+        status: foundReservation.status,
+        paymentStatus: foundReservation.paymentStatus
       });
     }
   }, [id]);
@@ -71,27 +79,80 @@ const ReservationEditPage = () => {
     setIsLoading(true);
 
     try {
-      // Burada gerçek uygulamada API çağrısı yapılacak
-      console.log('Rezervasyon güncelleniyor:', {
-        reservationId: reservation.id,
-        customerData: formData
-      });
-      
-      // Simüle edilmiş API çağrısı
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      alert('Rezervasyon başarıyla güncellendi!');
-      navigate(`/reservations/${id}`);
+      // Müşteri bilgilerini güncelle
+      const customer = getCustomerById(reservation.customerId);
+      if (customer) {
+        const updatedCustomer = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone
+        };
+        
+        // Local Storage'a müşteri güncelle
+        const customerResult = customerService.update(customer.id, updatedCustomer);
+        
+        if (customerResult) {
+          // Rezervasyon bilgilerini güncelle
+          const updatedReservation = {
+            guestCount: formData.guestCount,
+            notes: formData.notes,
+            status: formData.status,
+            paymentStatus: formData.paymentStatus
+          };
+          
+          const reservationResult = reservationService.update(parseInt(id), updatedReservation);
+          
+          if (reservationResult) {
+            console.log('Rezervasyon güncellendi:', reservationResult);
+            toast.success('Rezervasyon başarıyla güncellendi!');
+            
+            // Form verilerini güncelle
+            setReservation(reservationResult);
+            setFormData({
+              firstName: updatedCustomer.firstName,
+              lastName: updatedCustomer.lastName,
+              email: updatedCustomer.email,
+              phone: updatedCustomer.phone,
+              guestCount: reservationResult.guestCount,
+              notes: reservationResult.notes || '',
+              status: reservationResult.status,
+              paymentStatus: reservationResult.paymentStatus
+            });
+          } else {
+            throw new Error('Rezervasyon güncellenemedi');
+          }
+        } else {
+          throw new Error('Müşteri güncellenemedi');
+        }
+      } else {
+        throw new Error('Müşteri bulunamadı');
+      }
     } catch (error) {
       console.error('Güncelleme hatası:', error);
-      alert('Güncelleme sırasında bir hata oluştu!');
+      toast.error('Güncelleme sırasında bir hata oluştu!');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCancel = () => {
-    navigate(`/reservations/${id}`);
+    // Eğer state'de from var ise oraya, yoksa rezervasyonlar listesine dön
+    if (location.state?.from) {
+      navigate(location.state.from, { replace: true });
+      // Önceki sayfayı yenile ve scroll top yap
+      setTimeout(() => {
+        window.location.reload();
+        window.scrollTo(0, 0);
+      }, 100);
+    } else {
+      navigate(-1); // Bir önceki sayfaya dön
+      // Önceki sayfayı yenile ve scroll top yap
+      setTimeout(() => {
+        window.location.reload();
+        window.scrollTo(0, 0);
+      }, 100);
+    }
   };
 
   if (!reservation || !bungalow || !customer) {
@@ -116,7 +177,7 @@ const ReservationEditPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate(`/reservations/${id}`)}
+                onClick={handleCancel}
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <ArrowLeftIcon className="w-5 h-5" />
@@ -253,6 +314,42 @@ const ReservationEditPage = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                   placeholder="Özel istekler, notlar..."
                 />
+              </div>
+
+              {/* Rezervasyon Durumu */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Rezervasyon Durumu
+                  </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  >
+                    <option value="Bekleyen">Bekleyen</option>
+                    <option value="Onaylandı">Onaylandı</option>
+                    <option value="Giriş Yaptı">Giriş Yaptı</option>
+                    <option value="Çıkış Yaptı">Çıkış Yaptı</option>
+                    <option value="İptal Edildi">İptal Edildi</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ödeme Durumu
+                  </label>
+                  <select
+                    value={formData.paymentStatus}
+                    onChange={(e) => handleInputChange('paymentStatus', e.target.value)}
+                    className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  >
+                    <option value="Ödenmedi">Ödenmedi</option>
+                    <option value="Kısmı Ödendi">Kısmı Ödendi</option>
+                    <option value="Ödendi">Ödendi</option>
+                    <option value="İade Edildi">İade Edildi</option>
+                  </select>
+                </div>
               </div>
             </form>
           </div>

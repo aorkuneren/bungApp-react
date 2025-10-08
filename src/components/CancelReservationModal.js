@@ -12,6 +12,10 @@ const CancelReservationModal = ({ isOpen, onClose, reservation, onCancel }) => {
 
   if (!isOpen || !reservation) return null;
 
+  // Güvenli değerler
+  const totalPrice = reservation.totalPrice || 0;
+  const paidAmount = reservation.paidAmount || 0;
+
   const handleCancel = async () => {
     if (!cancelReason.trim()) {
       toast.error('Lütfen iptal sebebini belirtin!');
@@ -48,9 +52,9 @@ const CancelReservationModal = ({ isOpen, onClose, reservation, onCancel }) => {
     const hoursUntilCheckIn = (checkIn - now) / (1000 * 60 * 60);
     
     if (hoursUntilCheckIn > 24) {
-      return reservation.paidAmount; // %100 iade
+      return paidAmount; // %100 iade
     } else if (hoursUntilCheckIn > 0) {
-      return Math.round(reservation.paidAmount * 0.5); // %50 iade
+      return Math.round(paidAmount * 0.5); // %50 iade
     } else {
       return 0; // İade yok
     }
@@ -124,15 +128,15 @@ const CancelReservationModal = ({ isOpen, onClose, reservation, onCancel }) => {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Toplam Tutar:</span>
-                <span className="font-medium text-gray-900">₺{reservation.totalPrice.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">₺{totalPrice.toLocaleString('tr-TR')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Ödenen Tutar:</span>
-                <span className="font-medium text-gray-900">₺{reservation.paidAmount.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">₺{paidAmount.toLocaleString('tr-TR')}</span>
               </div>
               <div className="flex justify-between border-t pt-2">
                 <span className="text-gray-600">İade Edilecek Tutar:</span>
-                <span className="font-medium text-green-600">₺{calculateRefund().toLocaleString()}</span>
+                <span className="font-medium text-green-600">₺{calculateRefund().toLocaleString('tr-TR')}</span>
               </div>
               <div className="text-xs text-gray-500">
                 İptal politikası: {refundPercentage()} iade (24 saat öncesine kadar %100, sonrası %50)

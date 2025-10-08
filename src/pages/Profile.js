@@ -18,6 +18,7 @@ import {
   CheckCircleIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState('genel');
@@ -237,7 +238,7 @@ const Profile = () => {
   const handleSave = () => {
     setProfile({ ...formData });
     setIsEditing(false);
-    // Başarı mesajı gösterilebilir
+    toast.success('Profil başarıyla güncellendi!');
   };
 
   const handleCancel = () => {

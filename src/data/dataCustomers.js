@@ -1,3 +1,6 @@
+// Local Storage servisini import et
+import { customerService } from './localStorage.js';
+
 // Müşteri Durumları
 export const CUSTOMER_STATUS = {
   ACTIVE: 'Aktif',
@@ -5,38 +8,32 @@ export const CUSTOMER_STATUS = {
   BANNED: 'Yasaklı'
 };
 
-// Müşteri Verileri - Boş başlangıç
-export const customers = [];
+export const customers = customerService.getAll();
 
-// Müşteri yardımcı fonksiyonları
+// Müşteri yardımcı fonksiyonları - Local Storage servislerini kullan
 export const getCustomerById = (id) => {
-  return customers.find(customer => customer.id === id);
+  return customerService.getById(id);
 };
 
 export const getCustomersByEmail = (email) => {
-  return customers.filter(customer => 
-    customer.email.toLowerCase().includes(email.toLowerCase())
-  );
+  return customerService.findByEmail(email);
 };
 
 export const getCustomersByName = (name) => {
-  return customers.filter(customer => 
-    customer.firstName.toLowerCase().includes(name.toLowerCase()) ||
-    customer.lastName.toLowerCase().includes(name.toLowerCase()) ||
-    `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(name.toLowerCase())
-  );
+  return customerService.findByName(name);
 };
 
 export const getCustomersByStatus = (status) => {
+  const customers = customerService.getAll();
   return customers.filter(customer => customer.status === status);
 };
 
 export const getActiveCustomers = () => {
-  return customers.filter(customer => customer.status === CUSTOMER_STATUS.ACTIVE);
+  return getCustomersByStatus(CUSTOMER_STATUS.ACTIVE);
 };
 
 export const getBannedCustomers = () => {
-  return customers.filter(customer => customer.status === CUSTOMER_STATUS.BANNED);
+  return getCustomersByStatus(CUSTOMER_STATUS.BANNED);
 };
 
 export const canCreateReservation = (customerId) => {
@@ -47,7 +44,7 @@ export const canCreateReservation = (customerId) => {
 export const updateCustomerStatus = (customerId, newStatus) => {
   const customer = getCustomerById(customerId);
   if (customer) {
-    customer.status = newStatus;
+    customerService.update(customerId, { status: newStatus });
     return true;
   }
   return false;
@@ -56,8 +53,11 @@ export const updateCustomerStatus = (customerId, newStatus) => {
 export const updateCustomerReservationStats = (customerId, reservationAmount) => {
   const customer = getCustomerById(customerId);
   if (customer) {
-    customer.totalReservations += 1;
-    customer.totalSpent += reservationAmount;
+    const newStats = {
+      totalReservations: customer.totalReservations + 1,
+      totalSpent: customer.totalSpent + reservationAmount
+    };
+    customerService.update(customerId, newStats);
     return true;
   }
   return false;

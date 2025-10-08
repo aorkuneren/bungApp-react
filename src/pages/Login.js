@@ -14,7 +14,7 @@ const Login = ({ onLogin, isAuthenticated }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [dbStatus, setDbStatus] = useState(null);
   const [testingDb, setTestingDb] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

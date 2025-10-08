@@ -1,3 +1,6 @@
+// Local Storage servisini import et
+import { reservationService } from './localStorage.js';
+
 // Rezervasyon Durumları
 export const RESERVATION_STATUS = {
   PENDING: 'Bekleyen',
@@ -15,45 +18,46 @@ export const PAYMENT_STATUS = {
   DEPOSIT_FORFEITED: 'Kapora Kesildi' // İptal edilen rezervasyonlarda
 };
 
-// Rezervasyon Verileri - Boş başlangıç
-export const reservations = [];
+export const reservations = reservationService.getAll();
 
-// Rezervasyon yardımcı fonksiyonları
+// Rezervasyon yardımcı fonksiyonları - Local Storage servislerini kullan
 export const getReservationById = (id) => {
-  return reservations.find(reservation => reservation.id === id);
+  return reservationService.getById(id);
+};
+
+export const getReservationByConfirmationCode = (confirmationCode) => {
+  const allReservations = reservationService.getAll();
+  console.log('getReservationByConfirmationCode - Aranan kod:', confirmationCode);
+  console.log('getReservationByConfirmationCode - Tüm rezervasyonlar:', allReservations.map(r => ({ id: r.id, code: r.code, confirmationCode: r.confirmationCode })));
+  const found = allReservations.find(reservation => reservation.confirmationCode === confirmationCode);
+  console.log('getReservationByConfirmationCode - Bulunan:', found);
+  return found;
 };
 
 export const getReservationsByBungalowId = (bungalowId) => {
-  return reservations.filter(reservation => reservation.bungalowId === bungalowId);
+  return reservationService.getByBungalowId(bungalowId);
 };
 
 export const getReservationsByCustomerId = (customerId) => {
-  return reservations.filter(reservation => reservation.customerId === customerId);
+  return reservationService.getByCustomerId(customerId);
 };
 
 export const getReservationsByStatus = (status) => {
-  return reservations.filter(reservation => reservation.status === status);
+  return reservationService.getByStatus(status);
 };
 
 export const getReservationsByPaymentStatus = (paymentStatus) => {
+  const reservations = reservationService.getAll();
   return reservations.filter(reservation => reservation.paymentStatus === paymentStatus);
 };
 
 export const getReservationsByDateRange = (startDate, endDate) => {
-  return reservations.filter(reservation => {
-    const checkIn = new Date(reservation.checkInDate);
-    const checkOut = new Date(reservation.checkOutDate);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    return (checkIn >= start && checkIn <= end) || 
-           (checkOut >= start && checkOut <= end) ||
-           (checkIn <= start && checkOut >= end);
-  });
+  return reservationService.getByDateRange(startDate, endDate);
 };
 
 export const getTodayReservations = () => {
   const today = new Date().toISOString().split('T')[0];
+  const reservations = reservationService.getAll();
   return reservations.filter(reservation => 
     reservation.checkInDate === today || reservation.checkOutDate === today
   );
@@ -61,6 +65,7 @@ export const getTodayReservations = () => {
 
 export const getUpcomingReservations = () => {
   const today = new Date().toISOString().split('T')[0];
+  const reservations = reservationService.getAll();
   return reservations.filter(reservation => 
     reservation.checkInDate > today && 
     (reservation.status === RESERVATION_STATUS.PENDING || 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { 
   ArrowLeftIcon,
@@ -10,11 +10,12 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
-import { bungalows, BUNGALOW_STATUS } from '../data/data';
+import { bungalows, BUNGALOW_STATUS, bungalowService } from '../data/data';
 
 const BungalowEditPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [bungalow, setBungalow] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -83,14 +84,27 @@ const BungalowEditPage = () => {
     const saveToast = toast.loading('Bungalov güncelleniyor...');
     
     try {
-      // Simüle edilmiş API çağrısı
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Bungalov'u güncelle
+      const updatedBungalow = bungalowService.update(parseInt(id), formData);
       
-      toast.success('Bungalov başarıyla güncellendi!', { id: saveToast });
-      
-      // Bungalov detay sayfasına yönlendir
-      navigate(`/bungalows/${id}`);
+      if (updatedBungalow) {
+        toast.success('Bungalov başarıyla güncellendi!', { id: saveToast });
+        
+        // Form verilerini güncelle
+        setBungalow(updatedBungalow);
+        setFormData({
+          name: updatedBungalow.name,
+          capacity: updatedBungalow.capacity,
+          dailyPrice: updatedBungalow.dailyPrice,
+          status: updatedBungalow.status,
+          description: updatedBungalow.description || '',
+          feature: updatedBungalow.feature || ''
+        });
+      } else {
+        throw new Error('Bungalov güncellenemedi');
+      }
     } catch (error) {
+      console.error('Bungalov güncelleme hatası:', error);
       toast.error('Güncelleme sırasında bir hata oluştu!', { id: saveToast });
     } finally {
       setIsSaving(false);
@@ -98,7 +112,22 @@ const BungalowEditPage = () => {
   };
 
   const handleCancel = () => {
-    navigate(`/bungalows/${id}`);
+    // Eğer state'de from var ise oraya, yoksa bungalovlar listesine dön
+    if (location.state?.from) {
+      navigate(location.state.from, { replace: true });
+      // Önceki sayfayı yenile ve scroll top yap
+      setTimeout(() => {
+        window.location.reload();
+        window.scrollTo(0, 0);
+      }, 100);
+    } else {
+      navigate(-1); // Bir önceki sayfaya dön
+      // Önceki sayfayı yenile ve scroll top yap
+      setTimeout(() => {
+        window.location.reload();
+        window.scrollTo(0, 0);
+      }, 100);
+    }
   };
 
   if (!bungalow) {
@@ -209,22 +238,30 @@ const BungalowEditPage = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Günlük Fiyat (₺) <span className="text-red-500">*</span>
+                  Gecelik Fiyat (₺) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
-                    type="number"
-                    value={formData.dailyPrice}
-                    onChange={(e) => handleInputChange('dailyPrice', parseInt(e.target.value) || 0)}
-                    className={`w-full h-10 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent ${
+                    type="text"
+                    value={formData.dailyPrice === 0 ? '' : formData.dailyPrice.toString()}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^\d]/g, '');
+                      handleInputChange('dailyPrice', parseInt(value) || 0);
+                    }}
+                    className={`w-full h-10 px-3 py-2 pr-8 border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent ${
                       errors.dailyPrice ? 'border-red-300' : 'border-gray-300'
                     }`}
-                    min="0"
+                    placeholder="0"
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3">
                     <CurrencyDollarIcon className="w-4 h-4 text-gray-400" />
                   </div>
                 </div>
+                {formData.dailyPrice > 0 && (
+                  <p className="mt-1 text-sm text-gray-500">
+                    Formatlanmış: {formData.dailyPrice.toLocaleString('tr-TR')} ₺
+                  </p>
+                )}
                 {errors.dailyPrice && (
                   <p className="mt-1 text-sm text-red-600">{errors.dailyPrice}</p>
                 )}
@@ -281,20 +318,6 @@ const BungalowEditPage = () => {
           </div>
         </div>
 
-        {/* Form Özeti */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2 mb-2">
-            <BuildingOfficeIcon className="w-5 h-5 text-blue-600" />
-            <h3 className="text-sm font-medium text-blue-900">Form Özeti</h3>
-          </div>
-          <div className="text-sm text-blue-800">
-            <p><strong>Bungalov Adı:</strong> {formData.name || 'Belirtilmemiş'}</p>
-            <p><strong>Kapasite:</strong> {formData.capacity} kişi</p>
-            <p><strong>Günlük Fiyat:</strong> ₺{formData.dailyPrice.toLocaleString()}</p>
-            <p><strong>Durum:</strong> {formData.status}</p>
-            {formData.feature && <p><strong>Özellik:</strong> {formData.feature}</p>}
-          </div>
-        </div>
       </div>
     </div>
   );

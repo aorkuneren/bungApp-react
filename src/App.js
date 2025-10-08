@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Navigation from './components/Navigation';
@@ -15,62 +15,207 @@ import CustomerDetailsPage from './pages/CustomerDetailsPage';
 import CustomerEditPage from './pages/CustomerEditPage';
 import ReservationDetailsPage from './pages/ReservationDetailsPage';
 import ReservationEditPage from './pages/ReservationEditPage';
+import ReservationConfirmation from './pages/ReservationConfirmation';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
+import { migrateExistingData } from './data/localStorage.js';
+import ScrollToTop from './components/ScrollToTop';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true); // Frontend-only mode: always authenticated
-  const [user, setUser] = useState({
-    id: 1,
-    name: 'Admin',
-    email: 'admin@example.com',
-    role: 'admin'
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Kullanıcı bilgilerini localStorage'dan yükle
+  useEffect(() => {
+    const savedUser = localStorage.getItem('bungalow_user');
+    const savedAuth = localStorage.getItem('bungalow_authenticated');
+    
+    if (savedUser && savedAuth === 'true') {
+      setUser(JSON.parse(savedUser));
+      setIsAuthenticated(true);
+    }
+    
+    // Mevcut verileri migration yap
+    migrateExistingData();
+    
+    // Demo verilerini yükleme - sadece migration yap
+    setDataLoaded(true);
+  }, []);
 
   const handleLogin = (credentials) => {
-    // Frontend-only mode: simple login simulation
-    setIsAuthenticated(true);
-    setUser({
+    // Basit login simülasyonu - herhangi bir email/şifre ile giriş yapılabilir
+    const userData = {
       id: 1,
       name: 'Admin',
       email: credentials.email,
       role: 'admin'
-    });
+    };
+    
+    setIsAuthenticated(true);
+    setUser(userData);
+    
+    // Kullanıcı bilgilerini localStorage'a kaydet
+    localStorage.setItem('bungalow_user', JSON.stringify(userData));
+    localStorage.setItem('bungalow_authenticated', 'true');
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUser(null);
+    
+    // localStorage'dan kullanıcı bilgilerini temizle
+    localStorage.removeItem('bungalow_user');
+    localStorage.removeItem('bungalow_authenticated');
   };
 
+  // Veri yüklenene kadar loading göster
+  if (!dataLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Veriler yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('App render - isAuthenticated:', isAuthenticated);
+  
   return (
     <Router>
+      <ScrollToTop />
       <div className="App">
-        <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
-        <div className="pt-16">
-          <Routes>
-            <Route path="/login" element={<Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            
-            {/* Frontend-only routes */}
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/bungalows" element={<Bungalows />} />
-            <Route path="/bungalows/:id" element={<BungalowDetailsPage />} />
-            <Route path="/bungalows/:id/edit" element={<BungalowEditPage />} />
-            <Route path="/reservations" element={<Reservations />} />
-            <Route path="/create-reservation" element={<CreateReservation />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/customers/:id" element={<CustomerDetailsPage />} />
-            <Route path="/customers/:id/edit" element={<CustomerEditPage />} />
-            <Route path="/reservations/:id" element={<ReservationDetailsPage />} />
-            <Route path="/reservations/:id/edit" element={<ReservationEditPage />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/profile" element={<Profile />} />
-          </Routes>
-        </div>
+        <Routes>
+          {/* Public routes - No navigation */}
+          <Route path="/login" element={<Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/confirm/:confirmationCode" element={<ReservationConfirmation />} />
+          
+          {/* Protected routes - With navigation */}
+          <Route path="/" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <Dashboard /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/dashboard" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <Dashboard /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/bungalows" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <Bungalows /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/bungalows/:id" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <BungalowDetailsPage /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/bungalows/:id/edit" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <BungalowEditPage /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/reservations" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <Reservations /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/create-reservation" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <CreateReservation /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/customers" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <Customers /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/customers/:id" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <CustomerDetailsPage /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/customers/:id/edit" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <CustomerEditPage /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/reservations/:id" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <ReservationDetailsPage /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/reservations/:id/edit" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <ReservationEditPage /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/reports" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <Reports /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/settings" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <Settings /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+          <Route path="/profile" element={
+            <>
+              <Navigation user={user} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+              <div className="pt-16">
+                {isAuthenticated ? <Profile /> : <Login onLogin={handleLogin} isAuthenticated={isAuthenticated} />}
+              </div>
+            </>
+          } />
+        </Routes>
         {/* Toast Notifications */}
         <Toaster
           position="bottom-right"

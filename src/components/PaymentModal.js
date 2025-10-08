@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { 
-  XMarkIcon,
   CreditCardIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
-import { BadgeTurkishLiraIcon } from './ui/icons/lucide-badge-turkish-lira';
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from './ui';
 
 const PaymentModal = ({ isOpen, onClose, reservation, onPayment }) => {
   const [paymentAmount, setPaymentAmount] = useState(0);
@@ -21,7 +20,7 @@ const PaymentModal = ({ isOpen, onClose, reservation, onPayment }) => {
       return;
     }
 
-    if (paymentAmount > reservation.remainingAmount) {
+    if (paymentAmount > remainingAmount) {
       toast.error('Ödeme tutarı kalan tutardan fazla olamaz!');
       return;
     }
@@ -50,33 +49,34 @@ const PaymentModal = ({ isOpen, onClose, reservation, onPayment }) => {
     }
   };
 
-  const newPaidAmount = reservation.paidAmount + paymentAmount;
-  const newRemainingAmount = reservation.totalPrice - newPaidAmount;
+  const paidAmount = reservation.paidAmount || 0;
+  const totalPrice = reservation.totalPrice || 0;
+  const remainingAmount = reservation.remainingAmount || 0;
+  
+  const newPaidAmount = paidAmount + paymentAmount;
+  const newRemainingAmount = totalPrice - newPaidAmount;
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-        <div className="mt-3">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0">
-                <CreditCardIcon className="w-8 h-8 text-gray-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">Ödeme Al</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Rezervasyon için ödeme kaydı oluşturun
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <XMarkIcon className="w-6 h-6" />
-            </button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Ödeme Al"
+      size="lg"
+    >
+      <ModalHeader>
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <CreditCardIcon className="w-8 h-8 text-gray-600" />
           </div>
+          <div>
+            <p className="text-sm text-gray-600 mt-1">
+              Rezervasyon için ödeme kaydı oluşturun
+            </p>
+          </div>
+        </div>
+      </ModalHeader>
+      
+      <ModalBody>
 
           {/* Rezervasyon Bilgileri */}
           <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
@@ -99,15 +99,15 @@ const PaymentModal = ({ isOpen, onClose, reservation, onPayment }) => {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Toplam Tutar:</span>
-                <span className="font-medium text-gray-900">₺{reservation.totalPrice.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">₺{totalPrice.toLocaleString('tr-TR')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Ödenen Tutar:</span>
-                <span className="font-medium text-gray-900">₺{reservation.paidAmount.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">₺{paidAmount.toLocaleString('tr-TR')}</span>
               </div>
               <div className="flex justify-between border-t pt-2">
                 <span className="text-gray-600">Kalan Tutar:</span>
-                <span className="font-medium text-red-600">₺{reservation.remainingAmount.toLocaleString()}</span>
+                <span className="font-medium text-red-600">₺{remainingAmount.toLocaleString('tr-TR')}</span>
               </div>
             </div>
           </div>
@@ -115,26 +115,21 @@ const PaymentModal = ({ isOpen, onClose, reservation, onPayment }) => {
           {/* Ödeme Tutarı */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Ödeme Tutarı *
+              Ödeme Tutarı (₺) *
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <BadgeTurkishLiraIcon className="w-5 h-5 text-gray-400" />
-              </div>
-              <input
-                type="number"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                placeholder="0"
-                min="0"
-                max={reservation.remainingAmount}
-                step="0.01"
-                required
-              />
-            </div>
+            <input
+              type="text"
+              value={paymentAmount === 0 ? '' : paymentAmount.toLocaleString('tr-TR')}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^\d]/g, '');
+                setPaymentAmount(parseInt(value) || 0);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+              placeholder="0"
+              required
+            />
             <p className="text-xs text-gray-500 mt-1">
-              Maksimum: ₺{reservation.remainingAmount.toLocaleString()}
+              Maksimum: ₺{remainingAmount.toLocaleString('tr-TR')}
             </p>
           </div>
 
@@ -175,12 +170,12 @@ const PaymentModal = ({ isOpen, onClose, reservation, onPayment }) => {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-green-700">Yeni Ödenen Tutar:</span>
-                <span className="font-medium text-green-900">₺{newPaidAmount.toLocaleString()}</span>
+                <span className="font-medium text-green-900">₺{newPaidAmount.toLocaleString('tr-TR')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-green-700">Yeni Kalan Tutar:</span>
                 <span className={`font-medium ${newRemainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  ₺{newRemainingAmount.toLocaleString()}
+                  ₺{newRemainingAmount.toLocaleString('tr-TR')}
                 </span>
               </div>
               {newRemainingAmount === 0 && (
@@ -198,19 +193,19 @@ const PaymentModal = ({ isOpen, onClose, reservation, onPayment }) => {
             </label>
             <div className="flex space-x-2">
               <button
-                onClick={() => setPaymentAmount(reservation.remainingAmount)}
+                onClick={() => setPaymentAmount(remainingAmount)}
                 className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200"
               >
                 Tümünü Öde
               </button>
               <button
-                onClick={() => setPaymentAmount(Math.round(reservation.remainingAmount * 0.5))}
+                onClick={() => setPaymentAmount(Math.round(remainingAmount * 0.5))}
                 className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200"
               >
                 %50'si
               </button>
               <button
-                onClick={() => setPaymentAmount(Math.round(reservation.remainingAmount * 0.25))}
+                onClick={() => setPaymentAmount(Math.round(remainingAmount * 0.25))}
                 className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200"
               >
                 %25'i
@@ -218,35 +213,26 @@ const PaymentModal = ({ isOpen, onClose, reservation, onPayment }) => {
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-            >
-              Vazgeç
-            </button>
-            <button
-              onClick={handlePayment}
-              disabled={isLoading || paymentAmount <= 0 || paymentAmount > reservation.remainingAmount}
-              className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Kaydediliyor...</span>
-                </>
-              ) : (
-                <>
-                  <CheckIcon className="w-4 h-4" />
-                  <span>Ödemeyi Kaydet</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      </ModalBody>
+      
+      <ModalFooter>
+        <Button
+          variant="secondary"
+          onClick={onClose}
+        >
+          Vazgeç
+        </Button>
+        <Button
+          variant="success"
+          onClick={handlePayment}
+          disabled={isLoading || paymentAmount <= 0 || paymentAmount > remainingAmount}
+          loading={isLoading}
+          icon={<CheckIcon className="w-4 h-4" />}
+        >
+          Ödemeyi Kaydet
+        </Button>
+      </ModalFooter>
+    </Modal>
   );
 };
 
